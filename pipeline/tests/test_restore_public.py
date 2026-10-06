@@ -6,12 +6,13 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from unittest.mock import patch
 
 from pipeline.collect import publish, verify_output
 from pipeline.compress_public import compress_public_data
-from pipeline.restore_public import restore_public_snapshot
+from pipeline.restore_public import _read_url, restore_public_snapshot
 
 
 class RestorePublicTests(unittest.TestCase):
@@ -63,6 +64,17 @@ class RestorePublicTests(unittest.TestCase):
                 restore_public_snapshot('https://example.test/project/', output)
 
             self.assertEqual(json.loads((output / 'manifest.json').read_text()), {'previous': True})
+
+    def test_retries_temporary_pages_unavailable_response(self):
+        url = 'https://example.test/project/data/members.json'
+        body = b'[]'
+        with patch('pipeline.restore_public.urlopen', side_effect=[
+            HTTPError(url, 503, 'Service Unavailable', None, None), io.BytesIO(body)
+        ]) as open_url, patch('pipeline.restore_public.time.sleep') as sleep:
+            self.assertEqual(_read_url(url, timeout=10), body)
+
+        self.assertEqual(open_url.call_count, 2)
+        sleep.assert_called_once_with(1)
 
 
 if __name__ == '__main__':

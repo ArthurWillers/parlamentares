@@ -2,17 +2,36 @@
 import argparse
 import gzip
 import hashlib
+from http.client import IncompleteRead, RemoteDisconnected
 import json
 import os
 import re
 import shutil
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePosixPath
-from urllib.parse import quote, urljoin, urlsplit
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote, urljoin
 from urllib.request import Request, urlopen
 
 from pipeline.collect import verify_output
+
+
+def _read_url(url, timeout):
+    request = Request(url, headers={'User-Agent': 'Parlamentares/1.0'})
+    for attempt in range(4):
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                return response.read()
+        except HTTPError as exc:
+            if exc.code not in (429, 500, 502, 503, 504) or attempt == 3:
+                raise
+        except (IncompleteRead, RemoteDisconnected, URLError, TimeoutError):
+            if attempt == 3:
+                raise
+        time.sleep(2 ** attempt)
+    raise RuntimeError(f'Falha ao baixar arquivo publicado: {url}')
 
 
 def _relative_json_path(value):
@@ -28,8 +47,7 @@ def restore_public_snapshot(site_url, destination=Path('public/data')):
     """Baixa arquivos publicados, verifica checksums e descompacta em modo transacional."""
     base = site_url.rstrip('/') + '/'
     manifest_url = urljoin(base, 'data/manifest.json')
-    with urlopen(Request(manifest_url, headers={'User-Agent': 'Parlamentares/1.0'}), timeout=90) as response:
-        manifest = json.loads(response.read())
+    manifest = json.loads(_read_url(manifest_url, timeout=90))
     if not isinstance(manifest, dict) or not isinstance(manifest.get('files'), dict) or not manifest['files']:
         raise ValueError('Manifesto publicado inválido ou sem arquivos')
 
@@ -54,8 +72,7 @@ def restore_public_snapshot(site_url, destination=Path('public/data')):
 
     def download(entry):
         relative, output_path, expected, is_compressed, url = entry
-        with urlopen(Request(url, headers={'User-Agent': 'Parlamentares/1.0'}), timeout=120) as response:
-            body = response.read()
+        body = _read_url(url, timeout=120)
         if hashlib.sha256(body).hexdigest() != expected:
             raise ValueError(f'Checksum publicado divergente: {relative}')
         content = gzip.decompress(body) if is_compressed else body
@@ -64,7 +81,7 @@ def restore_public_snapshot(site_url, destination=Path('public/data')):
 
     try:
         raw_checksums = {}
-        with ThreadPoolExecutor(max_workers=12) as executor:
+        with ThreadPoolExecutor(max_workers=8) as executor:
             for relative, content, checksum in executor.map(download, entries):
                 path = staging / relative
                 path.parent.mkdir(parents=True, exist_ok=True)

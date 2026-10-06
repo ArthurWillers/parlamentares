@@ -1603,10 +1603,19 @@ select:focus-visible,
   line-height: 1.1;
 }
 
-.profile-identity > p:last-child {
+.profile-links {
   margin: 8px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
   color: var(--ink-soft);
   font-size: 12px;
+}
+
+.profile-links a {
+  color: var(--teal);
+  font-weight: 650;
+  text-underline-offset: 3px;
 }
 
 .profile-period select {

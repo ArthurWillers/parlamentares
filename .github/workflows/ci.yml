@@ -29,6 +29,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Configurar GitHub Pages
+        id: pages
         uses: actions/configure-pages@v5
 
       - name: Install Python
@@ -39,8 +40,50 @@ jobs:
       - name: Test pipeline
         run: python -m unittest discover -s pipeline/tests -v
 
+      - name: Determine whether official data must be refreshed
+        id: refresh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            base="$PR_BASE_SHA"
+          else
+            base="$BEFORE_SHA"
+          fi
+
+          if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]]; then
+            echo "No usable base revision; performing a full data refresh."
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch --no-tags --depth=1 origin "$base"
+          changed_paths="$(git diff --name-only "$base" "$HEAD_SHA")"
+          if grep -Eq '^(pipeline/(collect\.py|http\.py|sources/|normalize/|aggregate/|validate/)|schemas/)' <<< "$changed_paths"; then
+            echo "Official-data code or schemas changed; performing a full data refresh."
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Only application/workflow code changed; reusing the published snapshot."
+            echo "required=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Collect and validate official data
+        if: steps.refresh.outputs.required == 'true'
         run: python -m pipeline.collect
+
+      - name: Restore and validate the published data snapshot
+        if: steps.refresh.outputs.required == 'false'
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+        run: python -m pipeline.restore_public --site-url "$SITE_URL"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6

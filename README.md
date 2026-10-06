@@ -19,7 +19,7 @@ Não há publicação Cloudflare nem analytics configurados. Proposições, vota
 
 ## Desenvolvimento
 
-Use Python 3.12+ e Node.js 24, com o pnpm fixado em `package.json`. Na primeira execução, colete antes de instalar: o `nuxt prepare` precisa conhecer os IDs das rotas estáticas.
+Use Python 3.12+ e Node.js 24, com o pnpm fixado em `package.json`. Antes de preparar o Nuxt, restaure ou colete os dados para que ele conheça os IDs das rotas estáticas.
 
 ```bash
 python -m unittest discover -s pipeline/tests -v
@@ -83,7 +83,7 @@ pnpm generate
 
 `generate` verifica a integridade dos JSONs, pré-renderiza as rotas e compacta os arquivos grandes em `.output/public`. IDs do manifesto enumeram todas as rotas de perfil; o site em produção não exige backend, Functions ou servidor Nuxt. `pnpm preview` permite conferir o resultado gerado.
 
-O workflow `ci.yml` coleta dados reais antes da instalação/preparação do Nuxt e executa testes/lint/tipos/generate. `refresh-data.yml` faz uma coleta completa nos dias 1 e 15 de cada mês, às 05:30 de Brasília, valida os dados e publica `.output/public` no GitHub Pages. Também pode ser executado manualmente pela aba **Actions**. Se a coleta, validação ou geração falhar, o job de publicação não roda e a versão válida anterior continua no ar.
+O workflow `ci.yml` executa uma coleta completa quando mudam coletores, normalização, agregação, validação ou schemas. Em mudanças de interface e configuração, ele restaura do GitHub Pages o snapshot publicado, confere os checksums e valida os dados antes de gerar e publicar o site, sem consultar novamente as APIs oficiais. `refresh-data.yml` continua fazendo uma coleta completa nos dias 1 e 15 de cada mês, às 05:30 de Brasília, e também pode ser executado manualmente pela aba **Actions**. Se a coleta, validação ou geração falhar, o job de publicação não roda e a versão válida anterior continua no ar.
 
 Para ativar a publicação, no repositório abra **Settings → Pages → Build and deployment** e selecione **GitHub Actions** como fonte. Depois execute **Actions → Coletar dados e gerar site → Run workflow** para a primeira publicação. O fluxo configura automaticamente a base `/parlamentares/` para este repositório e não precisa de secrets. O endereço esperado é https://arthurwillers.github.io/parlamentares/.
 

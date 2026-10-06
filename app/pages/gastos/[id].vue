@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { categoryColors, formatMoney, formatCompactMoney, formatDate, formatPercentage, months } from '~/utils/financial'
+import { officialMemberProfileUrl } from '~/utils/member'
 import type { Expense } from '~/types/financial'
 
 const { manifest, years, filters, member, pending, error, retry, expenses, periodLabel, totalCents } = useParliamentarianData()
+const officialProfileUrl = computed(() => member.value ? officialMemberProfileUrl(member.value) : null)
 const categories = computed(() => {
   const totals = new Map<string, number>()
   for (const expense of expenses.value) totals.set(expense.category, (totals.get(expense.category) ?? 0) + expense.cents)
@@ -99,12 +101,20 @@ useSeoMeta({ title: () => member.value ? `${member.value.name} | Parlamentares` 
           {{ member.chamber === 'deputados' ? 'Câmara dos Deputados' : 'Senado Federal' }} · {{ member.state }}
         </p>
         <h1>{{ member.name }}</h1>
-        <p>
-          {{ member.current ? 'Filiação atual:' : 'Filiação no cadastro:' }} {{ member.party }} <span aria-hidden="true">·</span> {{ member.state }} · <a
+        <p>{{ member.current ? 'Filiação atual:' : 'Filiação no cadastro:' }} {{ member.party }} <span aria-hidden="true">·</span> {{ member.state }}</p>
+        <p class="profile-links">
+          <a
+            v-if="officialProfileUrl"
+            :href="officialProfileUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Perfil oficial {{ member.chamber === 'deputados' ? 'na Câmara' : 'no Senado' }}</a>
+          <a
+            v-if="member.sourceUrl !== officialProfileUrl"
             :href="member.sourceUrl"
             target="_blank"
-            rel="noreferrer"
-          >Fonte oficial</a>
+            rel="noopener noreferrer"
+          >Fonte de cadastro</a>
         </p>
       </div>
       <div class="profile-period">

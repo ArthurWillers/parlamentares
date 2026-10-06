@@ -2,9 +2,10 @@
 
 ## Objetivo e escopo
 
-- Consulta pública de despesas da cota parlamentar de deputados federais e senadores.
-- Interface em português do Brasil, com filtros por Casa, parlamentar, partido, estado e período.
-- A primeira versão cobre somente gastos. Não adicionar proposições, votações, autenticação ou demais benefícios sem uma mudança explícita de escopo.
+- Consulta pública de informações financeiras que possam ser atribuídas com segurança ao exercício do mandato de deputados federais e senadores: despesas de cotas, subsídio/remuneração e outros reembolsos ou benefícios publicados.
+- Interface em português do Brasil, com filtros por Casa, parlamentar, partido, estado e período, incluindo o mandato individual quando houver cobertura.
+- Contas de partidos e campanhas do TSE podem aparecer em seção própria, sem serem atribuídas nem somadas às despesas individuais do mandato.
+- Proposições, votações e autenticação ficam fora do escopo.
 - Consultar o README para distinguir recursos implementados de decisões planejadas.
 
 ## Arquitetura
@@ -14,6 +15,7 @@
 - Não introduzir dependência de servidor em produção, APIs em `server/`, banco de dados, Functions ou renderização dinâmica.
 - Rotas parametrizadas precisam de entradas de pré-renderização conhecidas; a geração deve funcionar sem servidor em produção.
 - Coleta e processamento em Python, executados antes da publicação. Não consultar APIs oficiais diretamente dos componentes ou do navegador.
+- Uma consulta cadastral opcional de CNPJ/CPF pode ser oferecida no navegador após ação explícita do usuário, desde que seja claramente identificada como enriquecimento de terceiro, não altere o dado oficial e nunca bloqueie a visualização se falhar.
 - Usar as convenções de diretórios do Nuxt. Não criar camadas, classes ou abstrações sem necessidade concreta.
 
 ## Responsabilidades
@@ -36,13 +38,19 @@
 - Usar IDs estáveis com namespace da Casa. Não usar nomes como chave de junção.
 - Representar dinheiro em centavos inteiros; converter a entrada com aritmética decimal exata e conferir limites seguros para JavaScript.
 - Preservar categoria original, origem e identificador da despesa. Mapeamentos entre Casas devem ser explícitos e documentados.
+- Não agregar cota, remuneração, saúde, diárias, passagens ou outros benefícios em um único total sem regra de comparabilidade documentada. Mostrar cada tipo e sua cobertura separadamente.
+- Só atribuir remunerações/reembolsos a um parlamentar quando a fonte e os identificadores sustentarem essa ligação; despesa agregada ou protegida não deve ser distribuída nem estimada por pessoa.
+- Dados partidários e eleitorais do TSE permanecem em granularidade partidária/campanha, separados dos gastos do mandato.
+- O período “mandato” usa início e fim do mandato individual daquela Casa. Mandato com cobertura parcial precisa ser identificado como parcial; mudanças de partido devem respeitar a data do gasto.
+- Usar fotos de URLs fornecidas por fonte oficial quando disponíveis; manter fallback sem imagem e não ligar fotos reais a fixtures fictícias.
 - Documentar qual data define o período, como ajustes/estornos são tratados e como duplicatas são identificadas.
 - Não descartar valores negativos nem remover registros apenas por terem valores e fornecedores iguais.
 - Atribuição partidária histórica precisa de regra verificável; não usar o partido atual silenciosamente para despesas anteriores.
 - Não confundir dado ausente, coleta incompleta e zero.
 - Publicar fonte, cobertura, horário da coleta em ISO 8601 com fuso, versão do schema e metodologia.
 - Agregados devem reconciliar com os detalhes. Filtros locais só podem combinar granularidades publicadas e validadas.
-- Não apresentar despesas da cota como todo o custo do mandato nem gastos como medida de qualidade parlamentar.
+- Não apresentar apenas as despesas da cota como todo o custo do mandato nem gastos como medida de qualidade ou eficiência parlamentar.
+- Rankings de “mais” ou “menos” gasto devem usar mesma Casa, período, granularidade e cobertura, explicar que ordenam valores publicados e não julgam o parlamentar.
 - Nunca apresentar dados inventados como oficiais. Fixtures devem ser identificadas e isoladas.
 - Falha de coleta ou validação impede a nova publicação; preservar a versão válida anterior.
 

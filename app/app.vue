@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
@@ -7,74 +7,58 @@ useHead({
     { rel: 'icon', href: '/favicon.ico' }
   ],
   htmlAttrs: {
-    lang: 'en'
+    lang: 'pt-BR'
   }
-})
-
-const title = 'Nuxt Starter Template'
-const description = 'A production-ready starter template powered by Nuxt UI. Build beautiful, accessible, and performant applications in minutes, not hours.'
-
-useSeoMeta({
-  title,
-  description,
-  ogTitle: title,
-  ogDescription: description,
-  ogImage: 'https://ui.nuxt.com/assets/templates/nuxt/starter-light.png',
-  twitterCard: 'summary_large_image'
 })
 </script>
 
 <template>
   <UApp>
-    <UHeader>
-      <template #left>
+    <div class="site-shell">
+      <header class="site-header">
         <NuxtLink
           to="/"
-          class="focus-visible:outline-3 outline-primary/25 rounded-md p-1 -ms-1"
+          class="brand"
+          aria-label="Parlamentares — início"
         >
-          <AppLogo class="w-auto h-6 shrink-0" />
+          <span class="brand-mark"><UIcon
+            name="i-lucide-landmark"
+            aria-hidden="true"
+          /></span>
+          <span class="brand-name">Parlamentares</span>
+          <span
+            class="brand-divider"
+            aria-hidden="true"
+          />
+          <span class="brand-detail">Cota em foco</span>
         </NuxtLink>
 
-        <TemplateMenu />
-      </template>
+        <nav
+          class="main-nav"
+          aria-label="Navegação principal"
+        >
+          <NuxtLink to="/#resumo">Visão geral</NuxtLink>
+          <NuxtLink to="/parlamentares">Parlamentares</NuxtLink>
+          <NuxtLink to="/fontes">Fontes e método</NuxtLink>
+        </nav>
+      </header>
 
-      <template #right>
-        <UColorModeButton />
+      <UMain class="site-main">
+        <NuxtPage />
+      </UMain>
 
-        <UButton
-          to="https://github.com/nuxt-ui-templates/starter"
-          target="_blank"
-          icon="i-simple-icons-github"
-          aria-label="GitHub"
-          color="neutral"
-          variant="ghost"
-        />
-      </template>
-    </UHeader>
-
-    <UMain>
-      <NuxtPage />
-    </UMain>
-
-    <USeparator icon="i-simple-icons-nuxtdotjs" />
-
-    <UFooter>
-      <template #left>
-        <p class="text-sm text-muted">
-          Built with Nuxt UI • © {{ new Date().getFullYear() }}
-        </p>
-      </template>
-
-      <template #right>
-        <UButton
-          to="https://github.com/nuxt-ui-templates/starter"
-          target="_blank"
-          icon="i-simple-icons-github"
-          aria-label="GitHub"
-          color="neutral"
-          variant="ghost"
-        />
-      </template>
-    </UFooter>
+      <footer class="site-footer">
+        <NuxtLink
+          to="/"
+          class="footer-brand"
+        >Parlamentares</NuxtLink>
+        <p>Despesas públicas com fonte, período e cobertura à vista.</p>
+        <NuxtLink to="/fontes">Fontes e metodologia</NuxtLink>
+        <a href="/#page-title">Voltar ao início <UIcon
+          name="i-lucide-arrow-up"
+          aria-hidden="true"
+        /></a>
+      </footer>
+    </div>
   </UApp>
 </template>

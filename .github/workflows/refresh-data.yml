@@ -1,0 +1,60 @@
+name: Coletar dados e gerar site
+
+on:
+  schedule:
+    - cron: '30 8 1,15 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: financial-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      pages: read
+    env:
+      NUXT_APP_BASE_URL: /${{ github.event.repository.name }}/
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: python -m unittest discover -s pipeline/tests -v
+      - name: Coletar fontes oficiais e validar
+        run: python -m pipeline.collect
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Preparar site para publicação
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .output/public
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar no GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

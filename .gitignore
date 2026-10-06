@@ -22,3 +22,10 @@ logs
 .env
 .env.*
 !.env.example
+
+# Dados oficiais coletados/gerados pelo pipeline
+public/data/
+public/.financial-data-*/
+public/.data-previous/
+__pycache__/
+*.pyc

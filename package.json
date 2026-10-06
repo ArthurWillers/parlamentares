@@ -7,13 +7,16 @@
   },
   "scripts": {
     "build": "nuxt build",
-    "generate": "nuxt generate",
+    "generate": "pnpm data:validate && nuxt generate && python -m pipeline.compress_public",
     "dev": "nuxt dev",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
-    "check": "pnpm lint && pnpm typecheck && pnpm generate"
+    "check": "pnpm lint && pnpm typecheck && pnpm generate",
+    "data:collect": "python -m pipeline.collect",
+    "data:validate": "python -m pipeline.verify",
+    "data:test": "python -m unittest discover -s pipeline/tests -v"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.139",

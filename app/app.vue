@@ -38,7 +38,7 @@ useHead({
           aria-label="Navegação principal"
         >
           <NuxtLink to="/#resumo">Visão geral</NuxtLink>
-          <NuxtLink to="/parlamentares">Parlamentares</NuxtLink>
+          <NuxtLink to="/gastos">Parlamentares</NuxtLink>
           <NuxtLink to="/fontes">Fontes e método</NuxtLink>
         </nav>
       </header>

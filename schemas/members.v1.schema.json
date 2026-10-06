@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": "1.0.0",
+  "title": "Cadastro de parlamentares v1",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "name",
+      "chamber",
+      "party",
+      "state",
+      "photoUrl",
+      "sourceUrl",
+      "current",
+      "mandate"
+    ],
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^(camara|senado):[0-9]+$"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1
+      },
+      "chamber": {
+        "enum": [
+          "deputados",
+          "senadores"
+        ]
+      },
+      "party": {
+        "type": "string"
+      },
+      "state": {
+        "type": "string"
+      },
+      "photoUrl": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uri"
+      },
+      "sourceUrl": {
+        "type": "string",
+        "format": "uri"
+      },
+      "current": {
+        "type": "boolean"
+      },
+      "mandate": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "required": [
+          "start",
+          "end",
+          "partial"
+        ],
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date"
+          },
+          "end": {
+            "type": "string",
+            "format": "date"
+          },
+          "partial": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "additionalProperties": true
+  }
+}

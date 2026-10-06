@@ -1,23 +1,30 @@
 <script setup lang="ts">
+import type { Manifest } from '~/types/financial'
+import { formatMoney, formatCollectionDate } from '~/utils/financial'
+import { publicDataUrl } from '~/utils/publicDataUrl'
+
+const baseURL = useRuntimeConfig().app.baseURL
+const { data: manifest, error, status, refresh } = useFetch<Manifest>(publicDataUrl('index.json', baseURL), { server: false })
+
 useSeoMeta({
   title: 'Fontes e metodologia | Parlamentares',
-  description: 'De onde vêm os dados de despesas, subsídios e fundos partidários e como eles serão apresentados.'
+  description: 'Fontes oficiais, cobertura coletada, regras de atribuição e limites dos dados financeiros publicados.'
 })
 
 const sources = [
   {
     eyebrow: 'Câmara dos Deputados',
     title: 'Cota parlamentar (CEAP)',
-    detail: 'A Câmara publica despesas de cota desde 2008. O arquivo anual inclui categoria, fornecedor, identificador de CPF/CNPJ, documento fiscal e informações do parlamentar. Alguns registros podem vir sem identificador ou com identificadores técnicos; a origem será preservada.',
-    coverage: 'API e arquivos anuais',
+    detail: 'A Câmara publica despesas de cota desde 2008. O arquivo anual inclui categoria, fornecedor, identificador de CPF/CNPJ, documento fiscal e informações do parlamentar. Alguns registros podem vir sem identificador ou com identificadores técnicos; a origem é preservada.',
+    coverage: 'Integrado: arquivos anuais e histórico',
     href: 'https://dadosabertos.camara.leg.br/swagger/api.html',
     link: 'Abrir API e downloads'
   },
   {
     eyebrow: 'Senado Federal',
     title: 'Cota parlamentar (CEAPS)',
-    detail: 'A CEAPS está disponível em CSV e serviço web, com atualização diária. É uma fonte separada da CEAP da Câmara; categorias, regras de reembolso e campos devem ser mapeados sem apagar a classificação original.',
-    coverage: 'CSV e serviço web',
+    detail: 'A CEAPS está disponível em CSV e serviço web, com atualização diária. É uma fonte separada da CEAP da Câmara; as categorias originais são preservadas, sem comparação direta entre Casas.',
+    coverage: 'Integrado: API por ano, com IDs',
     href: 'https://www12.senado.leg.br/dados-abertos/conjuntos?grupo=senadores&portal=Administrativo',
     link: 'Abrir catálogo do Senado'
   },
@@ -72,6 +79,14 @@ const sources = [
 ]
 
 const principles = [
+  ['Competência financeira', 'O período usa numAno/numMes da CEAP e ano/mes da CEAPS, não a emissão da nota. O ano corrente é parcial e fontes podem receber lançamentos tardios.'],
+  ['Valores e ajustes', 'CEAP usa vlrLiquido; CEAPS usa valorReembolsado. Valores negativos ficam na soma. Restituições e glosas da Câmara são preservadas nos JSONs; a restituição não é subtraída novamente do líquido.'],
+  ['Registros repetidos', 'CEAPS usa o ID oficial, sem repetição. Na CEAP, ideDocumento não é único: a identidade usa SHA-256 da linha e número da ocorrência idêntica. Nenhuma linha é removida por ter o mesmo fornecedor, documento ou valor.'],
+  ['Partido histórico', 'Atribuímos pelo histórico oficial na emissão do documento. Se falta data, só usamos uma filiação que cubra todo o mês. Eventos da Câmara fora dos limites oficiais da legislatura são ignorados, e a filiação não é extrapolada após seu fim. Dias com partidos conflitantes e lacunas ficam sem atribuição verificável. O partido anual do CSV é preservado, mas não usado para inferir filiações passadas.'],
+  ['Mandato individual', 'O início vem do primeiro exercício individual registrado no mandato mais recente. Meses completos de competência dentro dos limites são somados; meses de fronteira incompletos ficam de fora. Mandatos anteriores a 2018 ou em andamento têm cobertura parcial.'],
+  ['Lideranças da Câmara', 'Linhas CEAP sem ideCadastro, como lideranças, não entram em perfis individuais nem rankings. Quantidade e valor excluídos estão na tabela de cobertura e no manifesto.'],
+  ['Outros recursos do Senado', 'Totais por tipo vêm de recursos-utilizados, com o código parlamentar na URL. São anuais, não são rateados por trimestre/mandato nem somados à cota. HTTP 404 indica indisponibilidade para aquele cadastro, nunca zero.'],
+  ['Remuneração e saúde', 'Folhas sem vínculo validado por identificador parlamentar não são atribuídas por nome ou estimadas pelo subsídio tabelado. Despesas de saúde não individualizadas permanecem fora dos perfis.'],
   ['Identidade estável', 'Junções por identificador da Casa, nunca apenas pelo nome. Filiação partidária deve respeitar a data da despesa.'],
   ['Período com cobertura', '“Mandato” usa as datas daquele mandato e só soma registros disponíveis. Uma coleta parcial aparece como parcial, nunca como total.'],
   ['Sem registro não é zero', 'Dado ausente, não individualizado ou coleta incompleta terá estado próprio, sem ser convertido em gasto zero.'],
@@ -91,10 +106,68 @@ const principles = [
         Transparência também é mostrar limites
       </p>
       <h1>De onde vem cada número.</h1>
-      <p>Este projeto vai reunir arquivos públicos das Casas Legislativas e do TSE. As integrações ainda não foram implementadas: os números nas outras telas são apenas demonstrações fictícias.</p>
-      <span class="integration-status"><i aria-hidden="true" /> Fontes mapeadas · coleta em desenvolvimento</span>
+      <p>As despesas de cotas vêm dos arquivos anuais CEAP da Câmara e da API CEAPS do Senado. Perfis, fotos e históricos são oficiais. Recursos fora da cota do Senado aparecem em totais anuais separados. Remuneração, outros benefícios da Câmara e TSE ainda não estão integrados.</p>
+      <span class="integration-status"><i aria-hidden="true" /> Cotas integradas · demais conjuntos com cobertura própria</span>
     </header>
 
+    <DataStatus
+      :pending="status === 'pending' || status === 'idle'"
+      :failed="Boolean(error)"
+      :manifest="manifest"
+      @retry="refresh"
+    />
+    <section
+      v-if="manifest"
+      class="suppliers-panel"
+      aria-labelledby="coverage-title"
+    >
+      <header class="profile-panel-heading">
+        <div>
+          <h2 id="coverage-title">
+            Cobertura desta publicação
+          </h2><p>Schema {{ manifest.schemaVersion }} · processado {{ formatCollectionDate(manifest.generatedAt) }}. “Coletado” significa leitura completa da fonte disponível, não garantia de que todos os gastos já foram lançados pela Casa.</p>
+        </div>
+      </header><div class="supplier-table-wrap">
+        <table class="supplier-table">
+          <thead>
+            <tr>
+              <th scope="col">
+                Casa / ano
+              </th><th scope="col">
+                Registros individuais
+              </th><th scope="col">
+                Valor individual
+              </th><th scope="col">
+                Último mês com registro
+              </th><th scope="col">
+                Sem parlamentar identificável
+              </th><th scope="col">
+                Situação
+              </th>
+            </tr>
+          </thead><tbody>
+            <tr
+              v-for="item in manifest.coverage"
+              :key="`${item.chamber}:${item.year}`"
+            >
+              <td>
+                <a
+                  :href="item.sourceUrl"
+                  target="_blank"
+                  rel="noreferrer"
+                >{{ item.chamber === 'deputados' ? 'Câmara' : 'Senado' }} / {{ item.year }}</a>
+              </td><td>{{ item.records.toLocaleString('pt-BR') }}</td><td>{{ formatMoney(item.cents) }}</td><td>{{ item.latestMonth }}/{{ item.year }}</td><td>{{ item.unattributed.records }} registros · {{ formatMoney(item.unattributed.cents) }}</td><td>{{ item.ongoing ? 'Ano parcial' : 'Ano encerrado, sujeito a correções' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div><p class="supplier-footnote">
+        O <a
+          :href="publicDataUrl('manifest.json', baseURL)"
+          target="_blank"
+          rel="noreferrer"
+        >manifesto completo</a> publica URLs, horários de coleta ISO 8601 com fuso e checksums de cada arquivo. Os JSONs são gerados e validados antes da publicação.
+      </p>
+    </section>
     <section
       class="source-cards"
       aria-label="Fontes públicas"
@@ -138,7 +211,7 @@ const principles = [
           <p class="intro-kicker">
             Regras de leitura
           </p><h2 id="methodology-title">
-            Como vamos tratar os dados
+            Como tratamos os dados
           </h2>
         </div>
       </div>
@@ -161,7 +234,7 @@ const principles = [
       </div>
       <div>
         <h2>Fotos dos parlamentares</h2>
-        <p>Os serviços da Câmara e do Senado incluem URLs de foto para parlamentares. Os perfis usarão a imagem oficial quando a fonte fornecer um endereço válido; até lá, a prévia usa apenas iniciais fictícias.</p>
+        <p>Os serviços da Câmara e do Senado incluem URLs de foto para parlamentares. Os perfis usam a URL oficial fornecida pela Casa, com iniciais como alternativa quando a imagem não estiver disponível.</p>
         <div class="source-photo-links">
           <a
             href="https://www2.camara.leg.br/transparencia/dados-abertos/dados-abertos-legislativo/webservices/deputados/obterdeputados"

@@ -1,6 +1,6 @@
 """Cliente HTTP com cache auditável; erros nunca viram resposta vazia."""
 import hashlib
-from http.client import IncompleteRead
+from http.client import IncompleteRead, RemoteDisconnected
 import json
 import os
 import time
@@ -72,7 +72,7 @@ class Client:
                     return body
                 if exc.code not in (429, 500, 502, 503, 504) or attempt == 3:
                     raise
-            except (IncompleteRead, URLError, TimeoutError):
+            except (IncompleteRead, RemoteDisconnected, URLError, TimeoutError):
                 if attempt == 3:
                     raise
             time.sleep(2 ** attempt)

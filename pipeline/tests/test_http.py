@@ -44,6 +44,20 @@ class HttpRetryTests(unittest.TestCase):
             self.assertEqual(metadata['sha256'], hashlib.sha256(body).hexdigest())
             self.assertEqual(client.sources[url]['etag'], '"snapshot"')
 
+    def test_remote_disconnect_retries(self):
+        url = 'https://example.gov.br/senators/42.json'
+        body = b'{"data": []}'
+
+        with tempfile.TemporaryDirectory() as directory:
+            client = Client(cache=Path(directory))
+            with patch('pipeline.http.urlopen', side_effect=[
+                http.client.RemoteDisconnected('Remote end closed connection without response'),
+                Response(body)
+            ]) as open_url, patch('pipeline.http.time.sleep'):
+                self.assertEqual(client.get(url), body)
+
+            self.assertEqual(open_url.call_count, 2)
+
 
 if __name__ == '__main__':
     unittest.main()

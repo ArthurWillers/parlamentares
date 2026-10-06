@@ -2,6 +2,8 @@ name: ci
 
 on:
   push:
+    branches:
+      - master
   pull_request:
   workflow_dispatch:
 
@@ -16,10 +18,18 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      pages: read
+    env:
+      NUXT_APP_BASE_URL: /${{ github.event.repository.name }}/
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
 
       - name: Install Python
         uses: actions/setup-python@v6
@@ -52,3 +62,28 @@ jobs:
 
       - name: Generate static site
         run: pnpm run generate
+
+      - name: Preparar site para publicação
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .output/public
+          include-hidden-files: true
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar no GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

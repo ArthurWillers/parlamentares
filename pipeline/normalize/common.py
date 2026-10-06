@@ -35,6 +35,25 @@ def official_url(value):
     return value.replace('http://', 'https://', 1) if value else None
 
 
+def auxiliary_cents(value):
+    """Campo auxiliar com frações de centavo: conservar o original, sem arredondar."""
+    if value is None or value == '':
+        return None
+    if isinstance(value, (float, bool)):
+        raise ValueError('Dinheiro precisa ser string, Decimal ou inteiro')
+    try:
+        amount = Decimal(str(value).strip())
+        if amount.is_finite():
+            with localcontext() as context:
+                context.prec = max(28, len(amount.as_tuple().digits) + 3)
+                scaled = amount * 100
+            if scaled != scaled.to_integral_value():
+                return None
+    except InvalidOperation as exc:
+        raise ValueError(f'Dinheiro inválido: {value}') from exc
+    return cents(value)
+
+
 def iso_date(value):
     if not value:
         return None

@@ -18,7 +18,7 @@ def registry(client):
 
 def annual_rows(client, year):
     url = ADMIN + f'/despesas_ceaps/{year}'
-    rows = client.json(url)
+    rows = client.json(url, cache_days=client.historical_cache_days(year))
     if not isinstance(rows, list) or not rows:
         raise ValueError(f'CEAPS vazia ou contrato inválido: {year}')
     return rows, url
@@ -28,12 +28,13 @@ def profiles(client, ids, current, years):
     def collect(key):
         source_id = key.split(':')[1]
         base = LEGIS + '/senador/' + source_id
-        identification = client.json(base + '.json')['DetalheParlamentar']['Parlamentar']['IdentificacaoParlamentar']
-        data = client.json(base + '/filiacoes.json')['FiliacaoParlamentar']['Parlamentar']
+        cache_days = 0 if key in current else 365
+        identification = client.json(base + '.json', cache_days=cache_days)['DetalheParlamentar']['Parlamentar']['IdentificacaoParlamentar']
+        data = client.json(base + '/filiacoes.json', cache_days=cache_days)['FiliacaoParlamentar']['Parlamentar']
         affiliations = [{'start': row['DataFiliacao'], 'end': row.get('DataDesfiliacao'),
                          'party': row['Partido']['SiglaPartido']}
                         for row in as_list(data.get('Filiacoes', {}).get('Filiacao')) if row.get('DataFiliacao')]
-        data = client.json(base + '/mandatos.json')['MandatoParlamentar']['Parlamentar']
+        data = client.json(base + '/mandatos.json', cache_days=cache_days)['MandatoParlamentar']['Parlamentar']
         mandates = []
         for row in as_list(data.get('Mandatos', {}).get('Mandato')):
             exercises = [item for item in as_list(row.get('Exercicios', {}).get('Exercicio'))
@@ -56,7 +57,7 @@ def profiles(client, ids, current, years):
         for year in years:
             url = ADMIN + f'/{source_id}/recursos-utilizados?ano={year}'
             try:
-                response = client.json(url)
+                response = client.json(url, cache_days=client.historical_cache_days(year))
             except HTTPError as exc:
                 if exc.code != 404:
                     raise

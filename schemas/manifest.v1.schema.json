@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "title": "Manifesto auditável v1",
   "type": "object",
   "required": [
@@ -16,7 +16,7 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": "1.1.0"
+      "const": "1.2.0"
     },
     "generatedAt": {
       "type": "string",
@@ -28,7 +28,7 @@
       "uniqueItems": true,
       "items": {
         "type": "integer",
-        "minimum": 2018
+        "minimum": 2008
       }
     },
     "profileIds": {
@@ -59,8 +59,23 @@
           "records",
           "cents",
           "latestMonth",
-          "unattributed"
-        ]
+          "unattributed",
+          "fetchedAt"
+        ],
+        "properties": {
+          "fetchedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "latestMonth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 12
+          }
+        }
       }
     },
     "sources": {
@@ -86,6 +101,22 @@
         "status",
         "reason"
       ]
+    },
+    "collectionPolicy": {
+      "type": "object",
+      "required": [
+        "historicalReviewDays",
+        "refreshFromYear"
+      ],
+      "properties": {
+        "historicalReviewDays": {
+          "const": 365
+        },
+        "refreshFromYear": {
+          "type": "integer",
+          "minimum": 2008
+        }
+      }
     }
   }
 }

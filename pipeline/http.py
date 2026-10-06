@@ -4,7 +4,7 @@ from http.client import IncompleteRead, RemoteDisconnected
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -12,25 +12,28 @@ from urllib.request import Request, urlopen
 
 
 class Client:
-    def __init__(self, cache=Path('.cache/pipeline'), offline=False, reuse_cache=False):
+    def __init__(self, cache=Path('.cache/pipeline'), offline=False, reuse_cache=False, review_history=False):
         self.cache = cache
         self.offline = offline
         self.reuse_cache = reuse_cache
+        self.review_history = review_history
         self.sources = {}
         cache.mkdir(parents=True, exist_ok=True)
 
-    def get(self, url):
+    def get(self, url, cache_days=0):
         key = hashlib.sha256(url.encode()).hexdigest()
         path = self.cache / key
         metadata_path = self.cache / (key + '.json')
         previous = json.loads(metadata_path.read_text()) if metadata_path.exists() else None
-        if self.offline or (self.reuse_cache and previous and path.exists()):
+        fresh_cache = (previous and cache_days > 0 and not self.review_history
+                       and datetime.fromisoformat(previous['fetchedAt']) > datetime.now(timezone.utc) - timedelta(days=cache_days))
+        if self.offline or ((self.reuse_cache or fresh_cache) and previous and path.exists()):
             if not previous or not path.exists():
                 raise ValueError(f'Cache ausente para {url}')
             body = path.read_bytes()
             if hashlib.sha256(body).hexdigest() != previous['sha256']:
                 raise ValueError(f'Cache corrompido: {url}')
-            self.sources[url] = previous
+            self.sources[url] = {**previous, 'cacheReused': True}
             if previous.get('httpStatus') == 404:
                 raise HTTPError(url, 404, 'Not Found (cached)', None, None)
             return body
@@ -78,8 +81,11 @@ class Client:
             time.sleep(2 ** attempt)
         raise RuntimeError(f'Falha de coleta: {url}')
 
-    def json(self, url):
-        return json.loads(self.get(url), parse_float=Decimal)
+    def json(self, url, cache_days=0):
+        return json.loads(self.get(url, cache_days=cache_days), parse_float=Decimal)
+
+    def historical_cache_days(self, year):
+        return 365 if year < datetime.now(timezone.utc).year - 1 else 0
 
 
 def as_list(value):

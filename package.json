@@ -13,6 +13,7 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
+    "test": "node --test tests/*.test.mjs",
     "check": "pnpm lint && pnpm typecheck && pnpm generate",
     "data:collect": "python -m pipeline.collect",
     "data:validate": "python -m pipeline.verify",

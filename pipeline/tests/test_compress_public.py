@@ -9,6 +9,25 @@ from pipeline.compress_public import compress_public_data
 
 
 class CompressPublicTests(unittest.TestCase):
+    def test_compresses_directly_from_source_without_copying_or_changing_raw_data(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / 'raw'
+            source.mkdir()
+            content = b'[{"memberId":"camara:123","cents":-100}]'
+            (source / 'summary-2008.json').write_bytes(content)
+            original_manifest = json.dumps({'files': {'summary-2008.json': hashlib.sha256(content).hexdigest()}})
+            (source / 'manifest.json').write_text(original_manifest)
+            output = root / 'site' / 'data'
+            compress_public_data(output, source_directory=source)
+            self.assertEqual((source / 'summary-2008.json').read_bytes(), content)
+            self.assertEqual((source / 'manifest.json').read_text(), original_manifest)
+            self.assertFalse((output / 'summary-2008.json').exists())
+            self.assertEqual(gzip.decompress((output / 'summary-2008.json.gz').read_bytes()), content)
+            (source / 'summary-2008.json').write_bytes(b'changed')
+            with self.assertRaisesRegex(ValueError, 'mudou antes da compactação'):
+                compress_public_data(output, source_directory=source)
+
     def test_compresses_large_json_and_updates_published_checksums(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             site = Path(temporary_directory)

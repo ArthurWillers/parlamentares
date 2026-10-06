@@ -1,4 +1,5 @@
 import type { Manifest, Parliamentarian, SummaryRow } from '~/types/financial'
+import { selectedYears, matchesPeriod, periodLabel as describePeriod } from '~/utils/period'
 import { normalizeSearch } from '~/utils/financial'
 import { fetchPublicJson } from '~/utils/fetchPublicJson'
 import { publicDataUrl } from '~/utils/publicDataUrl'
@@ -11,25 +12,20 @@ export function useFinancialData() {
   const years = computed(() => manifest.value?.years ?? [])
   const defaultYear = computed(() => years.value.at(-1) ?? new Date().getFullYear())
   const { filters, resetFilters } = useExpenseFilters(defaultYear, years)
-  const summaryKey = computed(() => `summary:${filters.period === 'historico' ? 'historico' : filters.year}`)
+  const requestedYears = computed(() => selectedYears(filters, years.value))
+  const summaryKey = computed(() => `summary:${requestedYears.value.join(',')}`)
   const summaryRequest = useAsyncData<SummaryRow[]>(summaryKey, async () => {
-    const requestedYears = filters.period === 'historico' ? years.value : [filters.year]
-    const summaries = await Promise.all(requestedYears.map(year => fetchPublicJson<SummaryRow[]>(`summary-${year}.json`, baseURL)))
+    const summaries = await Promise.all(requestedYears.value.map(year => fetchPublicJson<SummaryRow[]>(`summary-${year}.json`, baseURL)))
     return summaries.flat()
-  }, { server: false, watch: [() => filters.period, () => filters.year, years] })
+  }, { server: false })
   const error = computed(() => manifestRequest.error.value || membersRequest.error.value || summaryRequest.error.value)
   const pending = computed(() => [manifestRequest.status.value, membersRequest.status.value, summaryRequest.status.value].some(status => status === 'idle' || status === 'pending'))
-  const periodMonths = computed(() => {
-    if (!filters.period.startsWith('q')) return Array.from({ length: 12 }, (_, index) => index)
-    const quarter = Number(filters.period.slice(1)) - 1
-    return [quarter * 3, quarter * 3 + 1, quarter * 3 + 2]
-  })
-  const periodLabel = computed(() => filters.period === 'historico'
-    ? `Histórico publicado · ${years.value[0] ?? '—'}–${years.value.at(-1) ?? '—'}`
-    : filters.period.startsWith('q') ? `${Number(filters.period.slice(1))}º trimestre de ${filters.year}` : `Ano de ${filters.year}`)
+  const periodTimeline = computed(() => requestedYears.value.flatMap(year => Array.from({ length: 12 }, (_, index) => ({ year, month: index + 1 }))
+    .filter(row => matchesPeriod({ ...row, inMandate: false }, filters))))
+  const periodLabel = computed(() => describePeriod(filters, years.value))
   const chamberMembers = computed(() => (membersRequest.data.value ?? []).filter(member => member.chamber === filters.chamber
     && (filters.status === 'todos' || member.current)))
-  const baseRows = computed(() => (summaryRequest.data.value ?? []).filter(row => filters.period === 'historico' || periodMonths.value.includes(row.month - 1)))
+  const baseRows = computed(() => (summaryRequest.data.value ?? []).filter(row => matchesPeriod(row, filters)))
   const partyOptions = computed(() => {
     const ids = new Set(chamberMembers.value.map(member => member.id))
     return [...new Set(baseRows.value.filter(row => ids.has(row.memberId)).map(row => row.party))].sort()
@@ -54,9 +50,9 @@ export function useFinancialData() {
   })
   const coverage = computed(() => {
     const rows = manifest.value?.coverage.filter(item => item.chamber === filters.chamber
-      && (filters.period === 'historico' ? years.value.includes(item.year) : item.year === filters.year)) ?? []
+      && requestedYears.value.includes(item.year)) ?? []
     if (!rows.length) return undefined
-    if (filters.period !== 'historico') return rows[0]
+    if (rows.length === 1) return rows[0]
     const latest = rows.at(-1)!
     return {
       ...latest,
@@ -72,6 +68,6 @@ export function useFinancialData() {
   async function retry() {
     await Promise.all([manifestRequest.refresh(), membersRequest.refresh(), summaryRequest.refresh()])
   }
-  return { manifest, years, filters, resetFilters, error, pending, retry, periodMonths, periodLabel,
+  return { manifest, years, filters, resetFilters, error, pending, retry, periodTimeline, periodLabel, requestedYears,
     chamberMembers, partyOptions, rows, visibleMembers, coverage }
 }

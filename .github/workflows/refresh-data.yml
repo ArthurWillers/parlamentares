@@ -4,20 +4,25 @@ on:
   schedule:
     - cron: '30 8 1,15 * *'
   workflow_dispatch:
+    inputs:
+      review_history:
+        description: Revalidar também todos os anos antigos, ignorando o prazo de 365 dias
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: financial-data
+  group: financial-build-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
     permissions:
-      contents: read
+      contents: write
       pages: read
     env:
       NUXT_APP_BASE_URL: /${{ github.event.repository.name }}/
@@ -34,19 +39,43 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: python -m unittest discover -s pipeline/tests -v
+      - name: Restaurar fontes oficiais em cache
+        uses: ./.github/actions/restore-data
+        with:
+          prefix: dados-fontes-
+          destination: .cache/pipeline
+          token: ${{ github.token }}
       - name: Coletar fontes oficiais e validar
-        run: python -m pipeline.collect
+        env:
+          REVIEW_HISTORY: ${{ inputs.review_history || false }}
+        run: |
+          args=()
+          if [ "$REVIEW_HISTORY" = "true" ]; then args+=(--review-history); fi
+          python -m pipeline.collect "${args[@]}"
       - run: pnpm install --frozen-lockfile
+      - run: pnpm test
       - run: pnpm check
+      - name: Preservar fontes oficiais para próximas coletas
+        uses: ./.github/actions/save-data
+        with:
+          prefix: dados-fontes-
+          source: .cache/pipeline
+          token: ${{ github.token }}
+      - name: Preservar dados para alterações da interface
+        uses: ./.github/actions/save-data
+        with:
+          prefix: dados-site-
+          source: public/data
+          token: ${{ github.token }}
       - name: Preparar site para publicação
         uses: actions/upload-pages-artifact@v4
         with:
           path: .output/public
-          include-hidden-files: true
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     concurrency:
       group: github-pages
       cancel-in-progress: false

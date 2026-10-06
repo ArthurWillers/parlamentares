@@ -119,7 +119,7 @@ useSeoMeta({ title: () => member.value ? `${member.value.name} | Parlamentares` 
       </div>
       <div class="profile-period">
         <label
-          v-if="filters.period !== 'historico'"
+          v-if="filters.period !== 'historico' && filters.period !== 'personalizado'"
           class="filter-field"
         >
           <span>Ano</span>
@@ -138,7 +138,7 @@ useSeoMeta({ title: () => member.value ? `${member.value.name} | Parlamentares` 
           v-else
           class="filter-field"
         >
-          <span>Anos incluídos</span>
+          <span>{{ filters.period === 'personalizado' ? 'Cobertura disponível' : 'Anos incluídos' }}</span>
           <span class="filter-static">{{ years[0] }}–{{ years.at(-1) }}</span>
         </div>
         <label class="filter-field">
@@ -149,6 +149,7 @@ useSeoMeta({ title: () => member.value ? `${member.value.name} | Parlamentares` 
           >
             <option value="ano">Ano inteiro</option>
             <option value="historico">Histórico disponível</option>
+            <option value="personalizado">Período personalizado</option>
             <option
               value="mandato"
               :disabled="!member.mandate"
@@ -161,6 +162,13 @@ useSeoMeta({ title: () => member.value ? `${member.value.name} | Parlamentares` 
         </label>
       </div>
     </header>
+
+    <CustomPeriodFields
+      v-if="filters.period === 'personalizado'"
+      v-model:start="filters.startMonth"
+      v-model:end="filters.endMonth"
+      :years="years"
+    />
 
     <p
       v-if="filters.period === 'mandato'"
@@ -493,7 +501,7 @@ useSeoMeta({ title: () => member.value ? `${member.value.name} | Parlamentares` 
         v-else-if="member.chamber === 'senadores'"
         class="chart-caption"
       >
-        {{ filters.period === 'historico' ? 'A fonte não publicou recursos individualizados para este cadastro no intervalo selecionado.' : 'Recursos fora da cota possuem granularidade anual. Selecione “Ano inteiro” para consultá-los; não é possível rateá-los por trimestre ou mandato.' }}
+        {{ filters.period === 'historico' ? 'A fonte não publicou recursos individualizados para este cadastro no intervalo selecionado.' : 'Recursos fora da cota possuem granularidade anual. Selecione “Ano inteiro” para consultá-los; não é possível rateá-los por trimestre, mandato ou intervalo personalizado.' }}
       </p>
       <section
         class="disclosure-panel"

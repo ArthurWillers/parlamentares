@@ -7,7 +7,7 @@ from collections import Counter
 from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlencode
-from pipeline.normalize.common import cents, iso_date, official_url, party_at, in_mandate, UNKNOWN_PARTY
+from pipeline.normalize.common import cents, auxiliary_cents, iso_date, official_url, party_at, in_mandate, UNKNOWN_PARTY
 
 API = 'https://dadosabertos.camara.leg.br/api/v2'
 
@@ -34,7 +34,7 @@ def registry(client):
 
 def annual_rows(client, year):
     url = f'https://www.camara.leg.br/cotas/Ano-{year}.csv.zip'
-    with zipfile.ZipFile(io.BytesIO(client.get(url))) as archive:
+    with zipfile.ZipFile(io.BytesIO(client.get(url, cache_days=client.historical_cache_days(year)))) as archive:
         files = [name for name in archive.namelist() if name.lower().endswith('.csv')]
         if len(files) != 1:
             raise ValueError('Arquivo CEAP inesperado')
@@ -122,11 +122,12 @@ def profiles(client, ids, current):
     today = date.today().isoformat()
     def fetch_history(key):
         source_id = key.split(':')[1]
-        return key, client.json(API + '/deputados/' + source_id)['dados'], client.json(API + '/deputados/' + source_id + '/historico')['dados']
+        cache_days = 0 if key in current else 365
+        return key, client.json(API + '/deputados/' + source_id, cache_days=cache_days)['dados'], client.json(API + '/deputados/' + source_id + '/historico', cache_days=cache_days)['dados']
     with ThreadPoolExecutor(max_workers=4) as executor:
         histories = list(executor.map(fetch_history, sorted(ids)))
     legislature_ids = {row['idLegislatura'] for _key, _details, history in histories for row in history if row.get('idLegislatura')}
-    legislatures = {identifier: client.json(f'{API}/legislaturas/{identifier}')['dados']
+    legislatures = {identifier: client.json(f'{API}/legislaturas/{identifier}', cache_days=365)['dados']
                     for identifier in sorted(legislature_ids)}
     def collect(entry):
         key, details, history = entry
@@ -176,9 +177,12 @@ def normalize(rows, year, members, source_url):
                         'documentNumber': row['txtNumero'], 'documentType': row['indTipoDocumento'],
                         'documentUrl': official_url(row['urlDocumento']), 'portalUrl': expense_portal_url(row, actual_year, month),
                         'sourceUrl': source_url,
-                        'sourceRecord': str(index), 'grossCents': cents(row['vlrDocumento']) if row['vlrDocumento'] else None,
-                        'disallowedCents': cents(row['vlrGlosa']) if row['vlrGlosa'] else None,
-                        'restitutionCents': cents(row['vlrRestituicao']) if row['vlrRestituicao'] else None,
+                        'sourceRecord': str(index), 'grossCents': auxiliary_cents(row['vlrDocumento']),
+                        'grossAmountOriginal': row['vlrDocumento'] or None,
+                        'disallowedCents': auxiliary_cents(row['vlrGlosa']),
+                        'disallowedAmountOriginal': row['vlrGlosa'] or None,
+                        'restitutionCents': auxiliary_cents(row['vlrRestituicao']),
+                        'restitutionAmountOriginal': row['vlrRestituicao'] or None,
                         'restitutionAt': row['datPagamentoRestituicao'] or None,
                         'installment': row['numParcela'], 'batch': row['numLote'],
                         'reimbursement': row['numRessarcimento']})

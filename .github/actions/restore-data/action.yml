@@ -1,0 +1,58 @@
+name: Restaurar pacote de dados
+description: Recupera o pacote completo mais recente de uma Release de dados validada.
+inputs:
+  prefix:
+    description: Prefixo das tags das Releases de dados.
+    required: true
+  destination:
+    description: Diretório local de destino.
+    required: true
+  token:
+    description: Token com leitura do repositório.
+    required: true
+outputs:
+  found:
+    description: Indica se havia um pacote disponível.
+    value: ${{ steps.release.outputs.found }}
+runs:
+  using: composite
+  steps:
+    - name: Localizar Release de dados
+      id: release
+      uses: actions/github-script@v8
+      env:
+        DATA_RELEASE_PREFIX: ${{ inputs.prefix }}
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const releases = await github.paginate(github.rest.repos.listReleases, {
+            ...context.repo, per_page: 100
+          });
+          const release = releases.filter(item => !item.draft && item.tag_name.startsWith(process.env.DATA_RELEASE_PREFIX))
+            .sort((a, b) => b.published_at.localeCompare(a.published_at))[0];
+          core.setOutput('found', String(Boolean(release)));
+          if (release) core.setOutput('tag', release.tag_name);
+    - name: Baixar e extrair pacote
+      if: steps.release.outputs.found == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        DATA_TAG: ${{ steps.release.outputs.tag }}
+        DATA_DESTINATION: ${{ inputs.destination }}
+        DATA_PREFIX: ${{ inputs.prefix }}
+      run: |
+        archive_dir="$RUNNER_TEMP/restore-$DATA_PREFIX"
+        mkdir -p "$archive_dir"
+        gh release download "$DATA_TAG" --repo "$GITHUB_REPOSITORY" --pattern data.tar.gz --dir "$archive_dir"
+        export DATA_ARCHIVE="$archive_dir/data.tar.gz"
+        python - <<'PY'
+        import os
+        import tarfile
+        from pathlib import Path
+        destination = Path(os.environ['DATA_DESTINATION'])
+        destination.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(os.environ['DATA_ARCHIVE'], 'r:gz') as archive:
+            if any(not (item.isfile() or item.isdir()) for item in archive.getmembers()):
+                raise ValueError('Pacote de dados contém entrada não regular')
+            archive.extractall(destination, filter='data')
+        PY

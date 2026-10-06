@@ -17,6 +17,9 @@ export default defineNuxtConfig({
       '/**': { prerender: true }
     },
     nitro: {
+      // Arquivos grandes são compactados diretamente pelo pipeline após generate.
+      // Evita duplicar mais de 6 GB de JSON bruto no disco do Actions.
+      ignore: ['**/data/expenses/**', '**/data/members/**', '**/data/summary-*.json'],
       prerender: {
         crawlLinks: false,
         concurrency: 4,

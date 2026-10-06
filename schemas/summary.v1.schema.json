@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.2.0",
   "title": "Agregados por parlamentar/competência/partido/categoria v1",
   "type": "array",
   "items": {
@@ -22,7 +22,7 @@
       },
       "year": {
         "type": "integer",
-        "minimum": 2018
+        "minimum": 2008
       },
       "month": {
         "type": "integer",

@@ -79,13 +79,14 @@ const sources = [
 ]
 
 const principles = [
+  ['Revisão das fontes', 'O ano corrente e o anterior são revalidados a cada atualização quinzenal. Anos antigos e cadastros históricos são revisados após 365 dias, ou antes por revisão manual. Fontes reutilizadas mantêm seu horário original de coleta; o horário do processamento não indica uma nova consulta de todas as fontes.'],
   ['Competência financeira', 'O período usa numAno/numMes da CEAP e ano/mes da CEAPS, não a emissão da nota. O ano corrente é parcial e fontes podem receber lançamentos tardios.'],
-  ['Valores e ajustes', 'CEAP usa vlrLiquido; CEAPS usa valorReembolsado. Valores negativos ficam na soma. Restituições e glosas da Câmara são preservadas nos JSONs; a restituição não é subtraída novamente do líquido.'],
+  ['Valores e ajustes', 'CEAP usa vlrLiquido; CEAPS usa valorReembolsado. Valores negativos ficam na soma. Valores brutos, restituições e glosas da Câmara são preservados nos JSONs. Frações de centavo em campos auxiliares históricos ficam apenas no texto original, sem arredondamento; a restituição não é subtraída novamente do líquido.'],
   ['Registros repetidos', 'CEAPS usa o ID oficial, sem repetição. Na CEAP, ideDocumento não é único: a identidade usa SHA-256 da linha e número da ocorrência idêntica. Nenhuma linha é removida por ter o mesmo fornecedor, documento ou valor.'],
   ['Partido histórico', 'Atribuímos pelo histórico oficial na emissão do documento. Se falta data, só usamos uma filiação que cubra todo o mês. Eventos da Câmara fora dos limites oficiais da legislatura são ignorados, e a filiação não é extrapolada após seu fim. Dias com partidos conflitantes e lacunas ficam sem atribuição verificável. O partido anual do CSV é preservado, mas não usado para inferir filiações passadas.'],
-  ['Mandato individual', 'O início vem do primeiro exercício individual registrado no mandato mais recente. Meses completos de competência dentro dos limites são somados; meses de fronteira incompletos ficam de fora. Mandatos anteriores a 2018 ou em andamento têm cobertura parcial.'],
+  ['Mandato individual', 'O início vem do primeiro exercício individual registrado no mandato mais recente. Meses completos de competência dentro dos limites são somados; meses de fronteira incompletos ficam de fora. Mandatos iniciados antes da cobertura coletada ou em andamento têm cobertura parcial.'],
   ['Lideranças da Câmara', 'Linhas CEAP sem ideCadastro, como lideranças, não entram em perfis individuais nem rankings. Quantidade e valor excluídos estão na tabela de cobertura e no manifesto.'],
-  ['Outros recursos do Senado', 'Totais por tipo vêm de recursos-utilizados, com o código parlamentar na URL. São anuais, não são rateados por trimestre/mandato nem somados à cota. HTTP 404 indica indisponibilidade para aquele cadastro, nunca zero.'],
+  ['Outros recursos do Senado', 'Totais por tipo vêm de recursos-utilizados, com o código parlamentar na URL. São anuais, não são rateados por trimestre, mandato ou período personalizado nem somados à cota. HTTP 404 indica indisponibilidade para aquele cadastro, nunca zero.'],
   ['Remuneração e saúde', 'Folhas sem vínculo validado por identificador parlamentar não são atribuídas por nome ou estimadas pelo subsídio tabelado. Despesas de saúde não individualizadas permanecem fora dos perfis.'],
   ['Identidade estável', 'Junções por identificador da Casa, nunca apenas pelo nome. Filiação partidária deve respeitar a data da despesa.'],
   ['Período com cobertura', '“Mandato” usa as datas daquele mandato e só soma registros disponíveis. Uma coleta parcial aparece como parcial, nunca como total.'],
@@ -140,6 +141,8 @@ const principles = [
               </th><th scope="col">
                 Último mês com registro
               </th><th scope="col">
+                Fonte consultada em
+              </th><th scope="col">
                 Sem parlamentar identificável
               </th><th scope="col">
                 Situação
@@ -156,7 +159,7 @@ const principles = [
                   target="_blank"
                   rel="noreferrer"
                 >{{ item.chamber === 'deputados' ? 'Câmara' : 'Senado' }} / {{ item.year }}</a>
-              </td><td>{{ item.records.toLocaleString('pt-BR') }}</td><td>{{ formatMoney(item.cents) }}</td><td>{{ item.latestMonth }}/{{ item.year }}</td><td>{{ item.unattributed.records }} registros · {{ formatMoney(item.unattributed.cents) }}</td><td>{{ item.ongoing ? 'Ano parcial' : 'Ano encerrado, sujeito a correções' }}</td>
+              </td><td>{{ item.records.toLocaleString('pt-BR') }}</td><td>{{ formatMoney(item.cents) }}</td><td>{{ item.latestMonth ? `${item.latestMonth}/${item.year}` : 'Sem registros' }}</td><td>{{ item.fetchedAt ? formatCollectionDate(item.fetchedAt) : 'Ver manifesto' }}</td><td>{{ item.unattributed.records }} registros · {{ formatMoney(item.unattributed.cents) }}</td><td>{{ item.ongoing ? 'Ano parcial' : 'Ano encerrado, sujeito a correções' }}</td>
             </tr>
           </tbody>
         </table>

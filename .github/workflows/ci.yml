@@ -6,20 +6,25 @@ on:
       - master
   pull_request:
   workflow_dispatch:
+    inputs:
+      review_history:
+        description: Revalidar também todos os anos antigos, ignorando o prazo de 365 dias
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: financial-build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
     permissions:
-      contents: read
+      contents: write
       pages: read
     env:
       NUXT_APP_BASE_URL: /${{ github.event.repository.name }}/
@@ -75,12 +80,34 @@ jobs:
             echo "required=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Restaurar fontes oficiais em cache
+        if: steps.refresh.outputs.required == 'true'
+        uses: ./.github/actions/restore-data
+        with:
+          prefix: dados-fontes-
+          destination: .cache/pipeline
+          token: ${{ github.token }}
+
       - name: Collect and validate official data
         if: steps.refresh.outputs.required == 'true'
-        run: python -m pipeline.collect
+        env:
+          REVIEW_HISTORY: ${{ inputs.review_history || false }}
+        run: |
+          args=()
+          if [ "$REVIEW_HISTORY" = "true" ]; then args+=(--review-history); fi
+          python -m pipeline.collect "${args[@]}"
 
-      - name: Restore and validate the published data snapshot
+      - name: Restaurar pacote de dados normalizados
+        id: snapshot
         if: steps.refresh.outputs.required == 'false'
+        uses: ./.github/actions/restore-data
+        with:
+          prefix: dados-site-
+          destination: public/data
+          token: ${{ github.token }}
+
+      - name: Restaurar do Pages quando ainda não há pacote
+        if: steps.refresh.outputs.required == 'false' && steps.snapshot.outputs.found != 'true'
         env:
           SITE_URL: ${{ steps.pages.outputs.base_url }}
         run: python -m pipeline.restore_public --site-url "$SITE_URL"
@@ -100,22 +127,41 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      - name: Test month ranges
+        run: pnpm test
+
       - name: Typecheck
         run: pnpm run typecheck
 
       - name: Generate static site
         run: pnpm run generate
 
+      - name: Preservar fontes oficiais para próximas coletas
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && steps.refresh.outputs.required == 'true'
+        uses: ./.github/actions/save-data
+        with:
+          prefix: dados-fontes-
+          source: .cache/pipeline
+          token: ${{ github.token }}
+
+      - name: Preservar dados para alterações da interface
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        uses: ./.github/actions/save-data
+        with:
+          prefix: dados-site-
+          source: public/data
+          token: ${{ github.token }}
+
       - name: Preparar site para publicação
         uses: actions/upload-pages-artifact@v4
         with:
           path: .output/public
-          include-hidden-files: true
 
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
     needs: ci
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pages: write

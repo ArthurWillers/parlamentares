@@ -1,4 +1,5 @@
 import type { Expense, Manifest, Parliamentarian } from '~/types/financial'
+import { selectedYears, matchesPeriod, periodLabel as describePeriod } from '~/utils/period'
 import { fetchPublicJson } from '~/utils/fetchPublicJson'
 import { publicDataUrl } from '~/utils/publicDataUrl'
 
@@ -17,33 +18,27 @@ export function useParliamentarianData() {
     { server: false, watch: [memberId] }
   )
   const member = memberRequest.data
+  const requestedYears = computed(() => selectedYears(filters, years.value))
   const expenseRequest = useAsyncData<Expense[]>(
-    () => `expenses:${String(route.params.id)}:${filters.period}:${filters.year}`,
+    () => `expenses:${String(route.params.id)}:${requestedYears.value.join(',')}`,
     async () => {
       if (!member.value) return []
-      const requestedYears = filters.period === 'historico' || filters.period === 'mandato' ? years.value : [filters.year]
-      const files = await Promise.all(requestedYears.map(year => fetchPublicJson<Expense[]>(`expenses/${member.value?.id}/${year}.json`, baseURL)))
+      const files = await Promise.all(requestedYears.value.map(year => fetchPublicJson<Expense[]>(`expenses/${member.value?.id}/${year}.json`, baseURL)))
       return files.flat()
     },
-    { server: false, watch: [member, years] }
+    { server: false, watch: [member] }
   )
   const error = computed(() => manifestRequest.error.value || memberRequest.error.value || expenseRequest.error.value)
   const pending = computed(() => [manifestRequest.status.value, memberRequest.status.value, expenseRequest.status.value].some(status => status === 'idle' || status === 'pending'))
-  const expenses = computed(() => (expenseRequest.data.value ?? []).filter((row) => {
-    if (filters.period === 'mandato') return row.inMandate
-    if (filters.period.startsWith('q')) return Math.ceil(row.month / 3) === Number(filters.period.slice(1))
-    return true
-  }))
-  const periodLabel = computed(() => filters.period === 'historico'
-    ? `Histórico publicado · ${years.value[0] ?? '—'}–${years.value.at(-1) ?? '—'}`
-    : filters.period === 'mandato'
-      ? `Mandato individual${member.value?.mandate?.partial ? ' · cobertura parcial' : ''}`
-      : filters.period.startsWith('q') ? `${Number(filters.period.slice(1))}º trimestre de ${filters.year}` : `Ano de ${filters.year}`)
+  const expenses = computed(() => (expenseRequest.data.value ?? []).filter(row => matchesPeriod(row, filters)))
+  const periodLabel = computed(() => filters.period === 'mandato'
+    ? `Mandato individual${member.value?.mandate?.partial ? ' · cobertura parcial' : ''}`
+    : describePeriod(filters, years.value))
   const totalCents = computed(() => expenses.value.length ? expenses.value.reduce((sum, row) => sum + row.cents, 0) : null)
   async function retry() {
     await manifestRequest.refresh()
     await memberRequest.refresh()
     await expenseRequest.refresh()
   }
-  return { manifest, years, filters, member, pending, error, retry, expenses, periodLabel, totalCents }
+  return { manifest, years, filters, member, pending, error, retry, expenses, periodLabel, totalCents, requestedYears }
 }

@@ -5,14 +5,22 @@ from decimal import Decimal
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from pipeline.aggregate.expenses import summarize
-from pipeline.collect import publish
-from pipeline.normalize.common import cents, party_at, in_mandate, supplier_key
+from pipeline.collect import publish, verify_output
+from pipeline.normalize.common import cents, auxiliary_cents, party_at, in_mandate, supplier_key
 from pipeline.sources.camara import normalize, mandate_from_history, affiliations_from_history
 from pipeline.sources.senado import normalize as normalize_senado
 from pipeline.validate.integrity import validate
 
 
 class IntegrityTests(unittest.TestCase):
+    def test_auxiliary_subcent_values_are_not_rounded_or_added_to_totals(self):
+        self.assertIsNone(auxiliary_cents('39.8409'))
+        self.assertIsNone(auxiliary_cents(''))
+        self.assertIsNone(auxiliary_cents('-0.001'))
+        self.assertEqual(auxiliary_cents('39.8400'), 3984)
+        for value in ('NaN', 'Infinity', True, 0.29, 'invalid', '90071992547410'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                auxiliary_cents(value)
     def test_money_is_exact_signed_and_safe(self):
         self.assertEqual(cents('0.29'), 29)
         self.assertEqual(cents(Decimal('-12.34')), -1234)
@@ -65,6 +73,10 @@ class IntegrityTests(unittest.TestCase):
         self.assertEqual(len(set(record['id'] for record in records)), 3)
         self.assertEqual(sum(record['cents'] for record in records), 1800)
         self.assertEqual(excluded['records'], 0)
+        precise, _excluded = normalize([{**row, 'vlrDocumento': '39.8409'}], 2025, members, 'https://www.camara.leg.br')
+        self.assertIsNone(precise[0]['grossCents'])
+        self.assertEqual(precise[0]['grossAmountOriginal'], '39.8409')
+        self.assertEqual(precise[0]['cents'], 1000)
         portal = urlsplit(records[0]['portalUrl'])
         self.assertEqual(portal.netloc, 'www.camara.leg.br')
         self.assertEqual(portal.path, '/cota-parlamentar/sumarizado')
@@ -118,6 +130,36 @@ class IntegrityTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 publish(output, {}, [], {2025: []}, {'schemaVersion': 'broken', 'years': [2025]})
             self.assertEqual(json.loads((output / 'manifest.json').read_text()), {'previous': True})
+
+    def test_streaming_failure_after_first_year_keeps_previous_snapshot(self):
+        def batches():
+            yield 2008, []
+            raise ValueError('Ano seguinte incompleto')
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'data'
+            output.mkdir()
+            (output / 'manifest.json').write_text('{"previous":true}')
+            with self.assertRaisesRegex(ValueError, 'Ano seguinte incompleto'):
+                publish(output, {}, [], {2008: []}, {'schemaVersion': '1.2.0', 'years': [2008, 2009]}, year_batches=batches())
+            self.assertEqual(json.loads((output / 'manifest.json').read_text()), {'previous': True})
+            self.assertEqual(list(Path(directory).glob('.financial-data-*')), [])
+
+    def test_streamed_years_reconcile_signed_values_and_reject_duplicate_senate_ids(self):
+        members = {'senado:1': {'id': 'senado:1', 'name': 'Fixture de teste', 'chamber': 'senadores', 'mandate': None}}
+        row = {'id': 'senado:123', 'memberId': 'senado:1', 'year': 2008, 'month': 1, 'party': 'A',
+               'category': 'Passagens', 'inMandate': False, 'cents': 100, 'sourceUrl': 'https://example.gov.br'}
+        batches = [(2008, [row]), (2009, [{**row, 'id': 'senado:124', 'year': 2009, 'cents': -100}])]
+        summaries = {year: summarize(records) for year, records in batches}
+        metadata = {'schemaVersion': '1.2.0', 'years': [2008, 2009], 'coverage': []}
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'data'
+            publish(output, members, [], summaries, metadata, year_batches=iter(batches))
+            verify_output(output)
+            previous = (output / 'manifest.json').read_bytes()
+            duplicates = [(2008, [row]), (2009, [{**row, 'year': 2009, 'cents': -100}])]
+            with self.assertRaisesRegex(ValueError, 'duplicado entre anos'):
+                publish(output, members, [], summaries, metadata, year_batches=iter(duplicates))
+            self.assertEqual((output / 'manifest.json').read_bytes(), previous)
 
 
 if __name__ == '__main__':

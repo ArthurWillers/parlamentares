@@ -30,7 +30,7 @@ defineEmits<{ retry: [] }>()
       name="i-lucide-database"
       aria-hidden="true"
     />
-    <p><strong>Dados oficiais.</strong> Processado em {{ formatCollectionDate(manifest.generatedAt) }} (Brasília). Anos disponíveis: {{ manifest.years.join(', ') }}. O ano corrente tem cobertura parcial.</p>
+    <p><strong>Dados oficiais.</strong> Processado em {{ formatCollectionDate(manifest.generatedAt) }} (Brasília). Anos disponíveis: {{ manifest.years[0] }}–{{ manifest.years.at(-1) }}. O ano corrente tem cobertura parcial.</p>
     <NuxtLink to="/fontes">Cobertura e método</NuxtLink>
   </div>
 </template>

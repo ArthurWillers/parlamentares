@@ -2436,3 +2436,56 @@ select:focus-visible,
   .directory-filter-primary > label:last-child { grid-column: 1 / -1; }
   .directory-filter-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+
+.custom-period-fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.custom-period-fields legend {
+  float: left;
+  grid-column: 1 / -1;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.custom-period-fields p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.custom-period-fields input {
+  min-height: 37px;
+  color-scheme: light;
+  font-size: 14px;
+}
+
+
+.monthly-chart.custom-chart {
+  min-width: 0;
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(72px, 1fr);
+}
+
+.profile-page > .custom-period-fields {
+  margin-top: 14px;
+}
+
+@media (max-width: 400px) {
+  .custom-period-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

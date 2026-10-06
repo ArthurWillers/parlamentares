@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { periodQuery } from '~/utils/period'
 import { brazilianStates, formatMoney, formatCollectionDate } from '~/utils/financial'
 
 const { manifest, years, filters, resetFilters, error, pending, retry, periodLabel, visibleMembers, partyOptions } = useFinancialData()
@@ -21,7 +22,7 @@ const resultLabel = computed(() => {
   return filters.status === 'todos' ? `${count} ${count === 1 ? 'perfil' : 'perfis'} de ${noun}` : `${count} ${noun} em exercício`
 })
 function profileRoute(id: string) {
-  return `/gastos/${id.replace(':', '-')}?periodo=${filters.period}&ano=${filters.year}`
+  return { path: `/gastos/${id.replace(':', '-')}`, query: periodQuery(filters) }
 }
 useSeoMeta({ title: 'Parlamentares | Gastos da cota', description: 'Busque perfis e consulte despesas oficiais de deputados federais e senadores.' })
 </script>
@@ -100,7 +101,7 @@ useSeoMeta({ title: 'Parlamentares | Gastos da cota', description: 'Busque perfi
       </div>
       <div class="directory-filter-secondary">
         <label
-          v-if="filters.period !== 'historico'"
+          v-if="filters.period !== 'historico' && filters.period !== 'personalizado'"
           class="filter-field"
         >
           <span>Ano</span>
@@ -116,7 +117,7 @@ useSeoMeta({ title: 'Parlamentares | Gastos da cota', description: 'Busque perfi
           v-else
           class="filter-field"
         >
-          <span>Anos incluídos</span>
+          <span>{{ filters.period === 'personalizado' ? 'Cobertura disponível' : 'Anos incluídos' }}</span>
           <span class="filter-static">{{ years[0] }}–{{ years.at(-1) }}</span>
         </div>
         <label class="filter-field">
@@ -127,6 +128,7 @@ useSeoMeta({ title: 'Parlamentares | Gastos da cota', description: 'Busque perfi
           >
             <option value="ano">Ano inteiro</option>
             <option value="historico">Histórico disponível</option>
+            <option value="personalizado">Período personalizado</option>
             <option value="q1">1º trimestre</option><option value="q2">2º trimestre</option><option value="q3">3º trimestre</option><option value="q4">4º trimestre</option>
           </select>
         </label>
@@ -150,6 +152,12 @@ useSeoMeta({ title: 'Parlamentares | Gastos da cota', description: 'Busque perfi
         >
           Limpar filtros
         </UButton>
+        <CustomPeriodFields
+          v-if="filters.period === 'personalizado'"
+          v-model:start="filters.startMonth"
+          v-model:end="filters.endMonth"
+          :years="years"
+        />
       </div>
       <p
         v-if="manifest"

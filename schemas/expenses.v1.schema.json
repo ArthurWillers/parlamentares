@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "title": "Despesas de cota v1",
   "type": "array",
   "items": {
@@ -39,7 +39,7 @@
       },
       "year": {
         "type": "integer",
-        "minimum": 2018
+        "minimum": 2008
       },
       "month": {
         "type": "integer",
@@ -134,6 +134,54 @@
           "string",
           "null"
         ]
+      },
+      "grossCents": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991,
+        "description": "Centavos exatos quando representáveis. Frações de centavo do campo auxiliar permanecem apenas no valor original, sem arredondamento."
+      },
+      "grossAmountOriginal": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Texto monetário original publicado pela Câmara, preservado inclusive com precisão superior a duas casas decimais."
+      },
+      "disallowedCents": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991,
+        "description": "Centavos exatos quando representáveis. Frações de centavo do campo auxiliar permanecem apenas no valor original, sem arredondamento."
+      },
+      "disallowedAmountOriginal": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Texto monetário original publicado pela Câmara, preservado inclusive com precisão superior a duas casas decimais."
+      },
+      "restitutionCents": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991,
+        "description": "Centavos exatos quando representáveis. Frações de centavo do campo auxiliar permanecem apenas no valor original, sem arredondamento."
+      },
+      "restitutionAmountOriginal": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Texto monetário original publicado pela Câmara, preservado inclusive com precisão superior a duas casas decimais."
       }
     },
     "additionalProperties": true

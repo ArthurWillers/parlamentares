@@ -1,5 +1,5 @@
 export type Chamber = 'deputados' | 'senadores'
-export type ExpensePeriod = 'ano' | 'historico' | 'mandato' | 'q1' | 'q2' | 'q3' | 'q4'
+export type ExpensePeriod = 'ano' | 'historico' | 'personalizado' | 'mandato' | 'q1' | 'q2' | 'q3' | 'q4'
 
 export interface Mandate {
   start: string
@@ -47,15 +47,17 @@ export interface Manifest {
   generatedAt: string
   years: number[]
   collectionMode: 'live' | 'cached'
+  collectionPolicy?: { historicalReviewDays: number, refreshFromYear: number }
   coverage: Array<{
     chamber: Chamber
     year: number
     status: 'collected'
     ongoing: boolean
     sourceUrl: string
+    fetchedAt?: string
     records: number
     cents: number
-    latestMonth: number
+    latestMonth: number | null
     unattributed: { records: number, cents: number }
   }>
   remuneration: { status: string, reason: string }

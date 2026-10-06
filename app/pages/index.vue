@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { periodQuery } from '~/utils/period'
 import { brazilianStates, months, categoryColors, formatMoney, formatCompactMoney } from '~/utils/financial'
 
-const { manifest, years, filters, resetFilters, error, pending, retry, periodMonths, periodLabel,
+const { manifest, years, filters, resetFilters, error, pending, retry, periodTimeline, periodLabel, requestedYears,
   chamberMembers, partyOptions, rows, visibleMembers: allMembers, coverage } = useFinancialData()
 const periods = [
   { value: 'ano', label: 'Ano inteiro' },
   { value: 'historico', label: 'Histórico disponível' },
+  { value: 'personalizado', label: 'Período personalizado' },
   { value: 'q1', label: '1º trimestre' }, { value: 'q2', label: '2º trimestre' },
   { value: 'q3', label: '3º trimestre' }, { value: 'q4', label: '4º trimestre' }
 ]
@@ -20,9 +22,9 @@ const trendItems = computed(() => filters.period === 'historico'
       const yearRows = rows.value.filter(row => row.year === year)
       return { key: String(year), label: String(year), cents: yearRows.reduce((sum, row) => sum + row.cents, 0), count: yearRows.reduce((sum, row) => sum + row.count, 0) }
     })
-  : periodMonths.value.map((month) => {
-      const monthRows = rows.value.filter(row => row.month === month + 1)
-      return { key: String(month), label: months[month] ?? '', cents: monthRows.reduce((sum, row) => sum + row.cents, 0), count: monthRows.reduce((sum, row) => sum + row.count, 0) }
+  : periodTimeline.value.map(({ year, month }) => {
+      const monthRows = rows.value.filter(row => row.month === month && row.year === year)
+      return { key: `${year}-${month}`, label: `${months[month - 1]}${filters.period === 'personalizado' ? ` ${year}` : ''}`, cents: monthRows.reduce((sum, row) => sum + row.cents, 0), count: monthRows.reduce((sum, row) => sum + row.count, 0) }
     }))
 const totalCents = computed(() => rows.value.reduce((sum, row) => sum + row.cents, 0))
 const maximumTrendTotal = computed(() => Math.max(...trendItems.value.map(item => Math.abs(item.cents)), 1))
@@ -48,7 +50,7 @@ const reverseRanking = ref(false)
 const displayedMembers = computed(() => reverseRanking.value ? [...rankedMembers.value].reverse() : rankedMembers.value)
 const activeFilters = computed(() => filters.status !== 'em-exercicio' || filters.period !== 'ano' || Boolean(filters.state || filters.party || filters.search))
 function memberRoute(id: string) {
-  return `/gastos/${id.replace(':', '-')}?periodo=${filters.period}&ano=${filters.year}`
+  return { path: `/gastos/${id.replace(':', '-')}`, query: periodQuery(filters) }
 }
 function selectChamber(chamber: 'deputados' | 'senadores') {
   filters.chamber = chamber
@@ -127,7 +129,7 @@ useSeoMeta({ title: 'Gastos da cota parlamentar | Parlamentares', description: '
       </label>
 
       <label
-        v-if="filters.period !== 'historico'"
+        v-if="filters.period !== 'historico' && filters.period !== 'personalizado'"
         class="filter-field"
       >
         <span>Ano</span>
@@ -143,7 +145,7 @@ useSeoMeta({ title: 'Gastos da cota parlamentar | Parlamentares', description: '
         v-else
         class="filter-field"
       >
-        <span>Anos incluídos</span>
+        <span>{{ filters.period === 'personalizado' ? 'Cobertura disponível' : 'Anos incluídos' }}</span>
         <span class="filter-static">{{ years[0] }}–{{ years.at(-1) }}</span>
       </div>
       <label class="filter-field">
@@ -201,6 +203,12 @@ useSeoMeta({ title: 'Gastos da cota parlamentar | Parlamentares', description: '
       >
         Limpar
       </UButton>
+      <CustomPeriodFields
+        v-if="filters.period === 'personalizado'"
+        v-model:start="filters.startMonth"
+        v-model:end="filters.endMonth"
+        :years="years"
+      />
     </section>
 
     <label class="search-field">
@@ -222,7 +230,7 @@ useSeoMeta({ title: 'Gastos da cota parlamentar | Parlamentares', description: '
         v-if="coverage"
         class="chart-caption"
       >
-        {{ filters.status === 'em-exercicio' ? 'Seleção restrita aos parlamentares em exercício na última coleta.' : 'Seleção inclui perfis históricos.' }} {{ coverage.records.toLocaleString('pt-BR') }} registros de cota coletados no conjunto completo desta Casa {{ filters.period === 'historico' ? `entre ${years[0]} e ${years.at(-1)}` : `em ${filters.year}` }}. {{ coverage.ongoing ? 'Ano em andamento: cobertura parcial.' : 'Lançamentos históricos podem ser corrigidos pela fonte.' }}
+        {{ filters.status === 'em-exercicio' ? 'Seleção restrita aos parlamentares em exercício na última coleta.' : 'Seleção inclui perfis históricos.' }} {{ coverage.records.toLocaleString('pt-BR') }} registros de cota coletados nos arquivos anuais desta Casa {{ requestedYears.length > 1 ? `entre ${requestedYears[0]} e ${requestedYears.at(-1)}` : `em ${requestedYears[0]}` }}. {{ coverage.ongoing ? 'Ano em andamento: cobertura parcial.' : 'Lançamentos históricos podem ser corrigidos pela fonte.' }}
       </p>
       <section
         id="resumo"
@@ -273,7 +281,7 @@ useSeoMeta({ title: 'Gastos da cota parlamentar | Parlamentares', description: '
           >
             <ol
               class="monthly-chart"
-              :class="{ 'quarter-chart': filters.period.startsWith('q'), 'history-chart': filters.period === 'historico' }"
+              :class="{ 'quarter-chart': filters.period.startsWith('q'), 'history-chart': filters.period === 'historico', 'custom-chart': filters.period === 'personalizado' }"
             >
               <li
                 v-for="item in trendItems"

@@ -1,10 +1,13 @@
 import type { LocationQueryRaw, LocationQueryValue } from 'vue-router'
 import type { Chamber, ExpensePeriod } from '~/types/financial'
+import { normalizeMonthRange } from '~/utils/period'
 
 export interface ExpenseFilters {
   chamber: Chamber
   period: ExpensePeriod
   year: number
+  startMonth: string
+  endMonth: string
   state: string
   party: string
   search: string
@@ -23,6 +26,7 @@ export function useExpenseFilters(defaultYear: MaybeRef<number> = new Date().get
     chamber: 'deputados',
     period: 'ano',
     year: toValue(defaultYear),
+    ...normalizeMonthRange(undefined, undefined, toValue(years), toValue(defaultYear)),
     state: '',
     party: '',
     search: '',
@@ -31,19 +35,20 @@ export function useExpenseFilters(defaultYear: MaybeRef<number> = new Date().get
 
   let pendingQueryWrites = 0
   watch(
-    () => [route.query.casa, route.query.ano, route.query.periodo, route.query.uf, route.query.partido, route.query.busca, route.query.situacao] as const,
-    ([chamberValue, yearValue, periodValue, stateValue, partyValue, searchValue, statusValue]) => {
+    () => [route.query.casa, route.query.ano, route.query.periodo, route.query.uf, route.query.partido, route.query.busca, route.query.situacao, route.query.inicio, route.query.fim] as const,
+    ([chamberValue, yearValue, periodValue, stateValue, partyValue, searchValue, statusValue, startValue, endValue]) => {
       if (pendingQueryWrites) return
       const requestedYear = Number(readQueryValue(yearValue))
       const availableYears = toValue(years)
-      const validYear = availableYears.length ? availableYears.includes(requestedYear) : Number.isInteger(requestedYear) && requestedYear >= 2018 && requestedYear <= new Date().getFullYear()
+      const validYear = availableYears.length ? availableYears.includes(requestedYear) : Number.isInteger(requestedYear) && requestedYear >= 2008 && requestedYear <= new Date().getFullYear()
       const chamber = readQueryValue(chamberValue)
       const period = readQueryValue(periodValue)
 
       Object.assign(filters, {
         chamber: chamber === 'senadores' ? 'senadores' : 'deputados',
         year: validYear ? requestedYear : toValue(defaultYear),
-        period: period === 'historico' ? 'historico' : (allowMandate && period === 'mandato') ? 'mandato' : period === 'q1' || period === 'q2' || period === 'q3' || period === 'q4' ? period : 'ano',
+        period: period === 'personalizado' ? 'personalizado' : period === 'historico' ? 'historico' : (allowMandate && period === 'mandato') ? 'mandato' : period === 'q1' || period === 'q2' || period === 'q3' || period === 'q4' ? period : 'ano',
+        ...normalizeMonthRange(readQueryValue(startValue), readQueryValue(endValue), availableYears, validYear ? requestedYear : toValue(defaultYear)),
         state: readQueryValue(stateValue) ?? '',
         party: readQueryValue(partyValue) ?? '',
         search: readQueryValue(searchValue) ?? '',
@@ -55,6 +60,17 @@ export function useExpenseFilters(defaultYear: MaybeRef<number> = new Date().get
 
   watch(() => [toValue(years), toValue(defaultYear)] as const, ([availableYears, latestYear]) => {
     if (availableYears.length && !availableYears.includes(filters.year)) filters.year = latestYear
+    Object.assign(filters, normalizeMonthRange(filters.startMonth, filters.endMonth, availableYears, latestYear))
+  })
+
+  watch(() => [filters.startMonth, filters.endMonth] as const, ([start, end]) => {
+    Object.assign(filters, normalizeMonthRange(start, end, toValue(years), filters.year))
+  })
+
+  watch(() => filters.year, (year) => {
+    if (filters.period !== 'personalizado') {
+      Object.assign(filters, normalizeMonthRange(`${year}-01`, `${year}-12`, toValue(years), year))
+    }
   })
 
   watch(filters, async (value) => {
@@ -63,6 +79,8 @@ export function useExpenseFilters(defaultYear: MaybeRef<number> = new Date().get
       ['chamber', 'casa'],
       ['period', 'periodo'],
       ['year', 'ano'],
+      ['startMonth', 'inicio'],
+      ['endMonth', 'fim'],
       ['state', 'uf'],
       ['party', 'partido'],
       ['search', 'busca'],
@@ -73,7 +91,8 @@ export function useExpenseFilters(defaultYear: MaybeRef<number> = new Date().get
       const filterValue = value[filterKey]
       const defaultValue = filterKey === 'chamber' ? 'deputados' : filterKey === 'period' ? 'ano' : filterKey === 'year' ? toValue(defaultYear) : filterKey === 'status' ? 'em-exercicio' : ''
 
-      if (filterValue === defaultValue) {
+      const rangeField = filterKey === 'startMonth' || filterKey === 'endMonth'
+      if (filterValue === defaultValue || (rangeField && value.period !== 'personalizado') || (filterKey === 'year' && value.period === 'personalizado')) {
         query[queryKey] = undefined
       } else {
         query[queryKey] = String(filterValue)
@@ -95,6 +114,7 @@ export function useExpenseFilters(defaultYear: MaybeRef<number> = new Date().get
       chamber: 'deputados',
       period: 'ano',
       year: toValue(defaultYear),
+      ...normalizeMonthRange(undefined, undefined, toValue(years), toValue(defaultYear)),
       state: '',
       party: '',
       search: '',

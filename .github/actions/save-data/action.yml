@@ -1,0 +1,45 @@
+name: Preservar pacote de dados
+description: Publica um pacote completo após validação e mantém as duas versões mais recentes.
+inputs:
+  prefix:
+    description: Prefixo das tags das Releases de dados.
+    required: true
+  source:
+    description: Diretório com os dados validados.
+    required: true
+  token:
+    description: Token com escrita no repositório.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Compactar e preservar dados validados
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        DATA_PREFIX: ${{ inputs.prefix }}
+        DATA_SOURCE: ${{ inputs.source }}
+      run: |
+        archive_dir="$RUNNER_TEMP/save-$DATA_PREFIX"
+        mkdir -p "$archive_dir"
+        tar -czf "$archive_dir/data.tar.gz" -C "$DATA_SOURCE" .
+        tag="${DATA_PREFIX}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        gh release create "$tag" "$archive_dir/data.tar.gz" --repo "$GITHUB_REPOSITORY" \
+          --target "$GITHUB_SHA" --title "Pacote de dados: $DATA_PREFIX" \
+          --notes "Dados oficiais processados e validados pelo workflow. Pacote técnico para reutilização; não é uma versão da aplicação." \
+          --prerelease --draft
+        gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
+    - name: Remover pacotes antigos
+      uses: actions/github-script@v8
+      env:
+        DATA_RELEASE_PREFIX: ${{ inputs.prefix }}
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const releases = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
+          const versions = releases.filter(item => !item.draft && item.tag_name.startsWith(process.env.DATA_RELEASE_PREFIX))
+            .sort((a, b) => b.published_at.localeCompare(a.published_at));
+          for (const release of versions.slice(2)) {
+            await github.rest.repos.deleteRelease({ ...context.repo, release_id: release.id });
+            await github.rest.git.deleteRef({ ...context.repo, ref: `tags/${release.tag_name}` });
+          }

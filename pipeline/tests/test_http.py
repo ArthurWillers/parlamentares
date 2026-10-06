@@ -4,7 +4,9 @@ import http.client
 import json
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.error import HTTPError
 from unittest.mock import patch
 
 from pipeline.http import Client
@@ -26,6 +28,67 @@ class Response:
 
 
 class HttpRetryTests(unittest.TestCase):
+    def seed(self, directory, days=0, http_status=None):
+        url = 'https://example.gov.br/expenses.json'
+        body = b'{"data": []}'
+        key = hashlib.sha256(url.encode()).hexdigest()
+        metadata = {'url': url, 'fetchedAt': (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(),
+                    'sha256': hashlib.sha256(body).hexdigest(), 'etag': '"snapshot"'}
+        if http_status:
+            metadata['httpStatus'] = http_status
+        (Path(directory) / key).write_bytes(body)
+        (Path(directory) / (key + '.json')).write_text(json.dumps(metadata))
+        return url, body, metadata
+
+    def test_historical_cache_preserves_actual_collection_timestamp(self):
+        with tempfile.TemporaryDirectory() as directory:
+            url, body, metadata = self.seed(directory, days=364)
+            client = Client(cache=Path(directory))
+            with patch('pipeline.http.urlopen') as open_url:
+                self.assertEqual(client.get(url, cache_days=365), body)
+                open_url.assert_not_called()
+            self.assertEqual(client.sources[url]['fetchedAt'], metadata['fetchedAt'])
+            self.assertTrue(client.sources[url]['cacheReused'])
+
+    def test_expired_history_revalidates_and_updates_timestamp(self):
+        with tempfile.TemporaryDirectory() as directory:
+            url, body, metadata = self.seed(directory, days=366)
+            client = Client(cache=Path(directory))
+            with patch('pipeline.http.urlopen', side_effect=HTTPError(url, 304, 'Not Modified', None, None)) as open_url:
+                self.assertEqual(client.get(url, cache_days=365), body)
+                self.assertEqual(open_url.call_args.args[0].get_header('If-none-match'), '"snapshot"')
+            open_url.side_effect.close()
+            self.assertGreater(client.sources[url]['fetchedAt'], metadata['fetchedAt'])
+
+    def test_forced_review_and_recent_years_do_not_skip_http(self):
+        for cache_days, forced in ((365, True), (0, False)):
+            with self.subTest(cache_days=cache_days, forced=forced), tempfile.TemporaryDirectory() as directory:
+                url, body, _metadata = self.seed(directory)
+                client = Client(cache=Path(directory), review_history=forced)
+                with patch('pipeline.http.urlopen', return_value=Response(body)) as open_url:
+                    self.assertEqual(client.get(url, cache_days=cache_days), body)
+                    open_url.assert_called_once()
+        current_year = datetime.now(timezone.utc).year
+        with tempfile.TemporaryDirectory() as directory:
+            client = Client(cache=Path(directory))
+            self.assertEqual(client.historical_cache_days(current_year), 0)
+            self.assertEqual(client.historical_cache_days(current_year - 1), 0)
+            self.assertEqual(client.historical_cache_days(current_year - 2), 365)
+
+    def test_reused_404_stays_unavailable_and_corrupt_history_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            url, _body, metadata = self.seed(directory, http_status=404)
+            client = Client(cache=Path(directory))
+            with patch('pipeline.http.urlopen') as open_url, self.assertRaises(HTTPError) as raised:
+                client.get(url, cache_days=365)
+            self.assertEqual(raised.exception.code, 404)
+            raised.exception.close()
+            open_url.assert_not_called()
+            self.assertEqual(client.sources[url]['fetchedAt'], metadata['fetchedAt'])
+            (Path(directory) / hashlib.sha256(url.encode()).hexdigest()).write_bytes(b'corrupt')
+            with self.assertRaisesRegex(ValueError, 'Cache corrompido'):
+                client.get(url, cache_days=365)
+
     def test_incomplete_read_retries_and_only_caches_complete_body(self):
         url = 'https://example.gov.br/expenses.json'
         body = b'{"data": []}'

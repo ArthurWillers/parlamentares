@@ -319,15 +319,30 @@ useSeoMeta({ title: () => member.value ? `${member.value.name} | Parlamentares` 
                 v-for="supplier in suppliers.slice(0, 15)"
                 :key="supplier.key"
               >
-                <td><strong>{{ supplier.name }}</strong></td>
-                <td><span>{{ supplier.identifier ?? 'Não informado pela fonte' }}</span></td>
-                <td>{{ formatPercentage(supplier.share) }}</td>
-                <td class="supplier-money">
-                  {{ formatMoney(supplier.cents) }}
-                </td><td class="supplier-money">
-                  {{ formatMoney(supplier.averageMonthlyCents) }}
-                </td><td class="supplier-money supplier-peak">
-                  {{ formatMoney(supplier.peakMonthlyCents) }}<small>{{ monthLabel(supplier.peakMonth) }}</small>
+                <td data-label="Fornecedor">
+                  <strong>{{ supplier.name }}</strong>
+                </td>
+                <td data-label="CPF/CNPJ">
+                  <span>{{ supplier.identifier ?? 'Não informado pela fonte' }}</span>
+                </td>
+                <td data-label="Participação">
+                  <span>{{ formatPercentage(supplier.share) }}</span>
+                </td>
+                <td
+                  class="supplier-money"
+                  data-label="Total no período"
+                >
+                  <span>{{ formatMoney(supplier.cents) }}</span>
+                </td><td
+                  class="supplier-money"
+                  data-label="Média mensal"
+                >
+                  <span>{{ formatMoney(supplier.averageMonthlyCents) }}</span>
+                </td><td
+                  class="supplier-money supplier-peak"
+                  data-label="Maior mês"
+                >
+                  <span>{{ formatMoney(supplier.peakMonthlyCents) }}</span><small>{{ monthLabel(supplier.peakMonth) }}</small>
                 </td>
               </tr>
             </tbody>
@@ -364,7 +379,7 @@ useSeoMeta({ title: () => member.value ? `${member.value.name} | Parlamentares` 
           class="supplier-table-wrap"
           role="region"
           tabindex="0"
-          aria-label="Tabela de despesas da cota; role horizontalmente para ver todas as colunas"
+          aria-label="Despesas da cota parlamentar, com competência, fornecedor, categoria, valor e fonte oficial"
         >
           <table class="supplier-table expense-register-table">
             <caption class="sr-only">
@@ -396,21 +411,36 @@ useSeoMeta({ title: () => member.value ? `${member.value.name} | Parlamentares` 
                 v-for="expense in visibleExpenses"
                 :key="expense.id"
               >
-                <td class="expense-period">
+                <td
+                  class="expense-period"
+                  data-label="Competência"
+                >
                   {{ String(expense.month).padStart(2, '0') }}/{{ expense.year }}
                 </td>
-                <td class="expense-supplier">
+                <td
+                  class="expense-supplier"
+                  data-label="Fornecedor"
+                >
                   <strong>{{ expense.supplier || 'Não informado' }}</strong>
                   <small>{{ expense.supplierId || 'Identificador não informado' }}</small>
                 </td>
-                <td class="expense-category">
+                <td
+                  class="expense-category"
+                  data-label="Categoria"
+                >
                   {{ expense.category }}
                   <small>Partido na data: {{ expense.party }}</small>
                 </td>
-                <td class="expense-amount">
-                  {{ formatMoney(expense.cents) }}
+                <td
+                  class="expense-amount"
+                  data-label="Valor"
+                >
+                  <span>{{ formatMoney(expense.cents) }}</span>
                 </td>
-                <td class="expense-document">
+                <td
+                  class="expense-document"
+                  data-label="Fonte oficial"
+                >
                   <a
                     v-if="expense.portalUrl"
                     class="source-document-link"

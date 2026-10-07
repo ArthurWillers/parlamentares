@@ -1824,10 +1824,10 @@ select:focus-visible,
 }
 
 .expense-register-table col:nth-child(1) { width: 9%; }
-.expense-register-table col:nth-child(2) { width: 24%; }
-.expense-register-table col:nth-child(3) { width: 35%; }
-.expense-register-table col:nth-child(4) { width: 14%; }
-.expense-register-table col:nth-child(5) { width: 18%; }
+.expense-register-table col:nth-child(2) { width: 23%; }
+.expense-register-table col:nth-child(3) { width: 32%; }
+.expense-register-table col:nth-child(4) { width: 16%; }
+.expense-register-table col:nth-child(5) { width: 20%; }
 .supplier-summary-table col:nth-child(1) { width: 29%; }
 .supplier-summary-table col:nth-child(2) { width: 18%; }
 .supplier-summary-table col:nth-child(3) { width: 10%; }
@@ -2409,6 +2409,13 @@ select:focus-visible,
   }
 }
 
+@media (max-width: 340px) {
+  html,
+  body {
+    min-width: 0;
+  }
+}
+
 /* Leitura de dados oficiais: fotos, estados e detalhamento. */
 .data-notice { margin-bottom: 20px; }
 .data-notice a { flex: 0 0 auto; color: var(--blue); font-size: 12px; }
@@ -2487,5 +2494,232 @@ select:focus-visible,
 @media (max-width: 400px) {
   .custom-period-fields {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Keep financial values readable on narrow screens. */
+@media (max-width: 700px) {
+  .summary-item p {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+    font-size: clamp(18px, 4.2vw, 26px);
+    letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ranking-row {
+    grid-template-columns: 20px minmax(0, 1fr) max-content;
+  }
+
+  .rank-value {
+    max-width: none;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .directory-results li {
+    grid-template-columns: 20px minmax(0, 1fr) 12px;
+    grid-template-areas:
+      "rank member arrow"
+      ". amount arrow";
+    grid-template-rows: auto auto;
+    align-items: center;
+    row-gap: 5px;
+  }
+
+  .directory-rank { grid-area: rank; align-self: start; padding-top: 5px; }
+  .directory-member-link { grid-area: member; }
+  .directory-amount {
+    grid-area: amount;
+    justify-self: start;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .directory-arrow { grid-area: arrow; grid-row: 1 / span 2; align-self: center; }
+
+  .profile-total strong {
+    font-size: clamp(20px, 6vw, 30px);
+    letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .supplier-table-wrap {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .supplier-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: auto;
+  }
+
+  .supplier-table thead,
+  .expense-register-table thead {
+    display: none;
+  }
+
+  .supplier-table tbody {
+    display: grid;
+    gap: 9px;
+  }
+
+  .supplier-table tbody tr {
+    display: grid;
+    min-width: 0;
+    gap: 9px;
+    padding: 13px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--surface);
+  }
+
+  .supplier-table tbody tr:hover {
+    background: var(--surface);
+  }
+
+  .supplier-table tbody td {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: start;
+    gap: 12px;
+    padding: 0;
+    border: 0;
+    font-size: 12px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .supplier-table tbody td::before {
+    content: attr(data-label);
+    color: var(--ink-faint);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .supplier-table td small {
+    margin-top: 3px;
+    font-size: 11px;
+  }
+
+  .supplier-summary-table tbody tr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .supplier-summary-table tbody td:first-child {
+    display: block;
+  }
+
+  .supplier-summary-table tbody td:first-child::before {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .supplier-summary-table tbody td:first-child strong {
+    font-size: 13px;
+  }
+
+  .supplier-summary-table tbody td:nth-child(2) span,
+  .supplier-summary-table tbody td:nth-child(n+3) span {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .supplier-summary-table tbody td.supplier-peak {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+
+  .supplier-summary-table tbody td.supplier-peak span,
+  .supplier-summary-table tbody td.supplier-peak small {
+    grid-column: 2;
+  }
+
+  .supplier-summary-table tbody td.supplier-peak small {
+    text-align: right;
+  }
+
+  .expense-register-table tbody tr {
+    grid-template-areas:
+      "period"
+      "amount"
+      "supplier"
+      "category"
+      "document";
+  }
+
+  .expense-register-table tbody .expense-period {
+    grid-area: period;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .expense-register-table tbody .expense-amount {
+    grid-area: amount;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    color: var(--ink);
+    font-size: 16px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .expense-register-table tbody .expense-amount span {
+    white-space: nowrap;
+  }
+
+  .expense-register-table tbody .expense-supplier {
+    grid-area: supplier;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .expense-register-table tbody .expense-category {
+    grid-area: category;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .expense-register-table tbody .expense-document {
+    grid-area: document;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .summary {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 18px;
+  }
+
+  .summary-item,
+  .summary-item:nth-child(odd),
+  .summary-item:nth-child(even) {
+    padding: 0;
+    border-left: 0;
+  }
+
+  .summary-item p {
+    font-size: clamp(17px, 5.2vw, 24px);
+  }
+
+  .compact-ranking-list li {
+    grid-template-columns: 18px minmax(0, 1fr) max-content;
+    gap: 7px;
+  }
+
+  .compact-ranking-list li > strong {
+    min-width: max-content;
+    font-variant-numeric: tabular-nums;
   }
 }
